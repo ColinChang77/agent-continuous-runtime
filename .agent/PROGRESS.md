@@ -68,4 +68,9 @@
   in"; adding USER → "OK"; LOGNAME alone insufficient). Added USER + LOGNAME to
   CLAUDE_ENV_KEYS and CODEX_ENV_KEYS. Verified launch env now authenticates.
   Build/typecheck/lint/tests pass.
+- 2026-07-14: UX — `acr switch` with no `--to` now shows an interactive numbered
+  menu of installed agents (promptSelectAdapter) instead of erroring; the
+  non-interactive path lists available ids in the error. User expected `switch`
+  to present tool options. Excludes fake-agent from the menu. Added a menu test;
+  updated help text. Build/lint/tests pass.
 

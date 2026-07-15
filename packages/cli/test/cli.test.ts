@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   confirmUnknownTermination,
+  promptSelectAdapter,
   runCli,
   shortcutModeFromArgv
 } from "../src/index.js";
@@ -145,6 +146,31 @@ describe("CLI", () => {
     await expect(
       confirmUnknownTermination(input, output)
     ).resolves.toBeUndefined();
+  });
+
+  it("lets you pick a switch target from a numbered menu", async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    let prompted = "";
+    output.on("data", (chunk) => {
+      prompted += String(chunk);
+      if (prompted.trimEnd().endsWith(":")) {
+        // Answer the menu prompt with choice 2 once it is shown.
+        input.write("2\n");
+        prompted = "";
+      }
+    });
+
+    const chosen = await promptSelectAdapter(
+      [
+        { id: "claude-code", displayName: "Claude Code" },
+        { id: "codex", displayName: "Codex" }
+      ],
+      input,
+      output
+    );
+
+    expect(chosen).toBe("codex");
   });
 
   it("detects shortcut entrypoints from the invoked binary name", async () => {

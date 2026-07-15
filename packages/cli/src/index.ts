@@ -81,7 +81,7 @@ function renderHelp(): string {
     '  acr checkpoint [path] --summary "..." --next "..."',
     "  acr resume [path]",
     "  acr start [path] [--agent <id>] [--fallback <id>...] [--init]",
-    "  acr switch [path] --to <id>",
+    "  acr switch [path] [--to <id>]   (prompts with a menu if --to is omitted)",
     "  acr health reset [path] [--agent <id>]",
     "  acr adapters list",
     "  acr mcp serve --project /absolute/path",
@@ -646,6 +646,40 @@ export async function runSetup(
   }
 }
 
+/**
+ * Show a numbered menu of switchable agents and return the chosen adapter id.
+ * Used when `acr switch` is run without `--to` in an interactive terminal, so
+ * the user sees the available tools/accounts instead of an error.
+ */
+export async function promptSelectAdapter(
+  choices: Array<{ id: string; displayName: string }>,
+  input: Readable = interactiveInput(),
+  output: Writable = process.stdout
+): Promise<string> {
+  if (choices.length === 0) {
+    throw new Error("No installed agents are available to switch to.");
+  }
+  const rl = createInterface({ input, output });
+  try {
+    output.write("\nSwitch to which agent?\n");
+    choices.forEach((choice, index) => {
+      output.write(`  [${index + 1}] ${choice.displayName} (${choice.id})\n`);
+    });
+    const answer = (await rl.question(`Choice (1-${choices.length}): `)).trim();
+    const picked = Number.parseInt(answer, 10);
+    const chosen =
+      Number.isInteger(picked) && picked >= 1 && picked <= choices.length
+        ? choices[picked - 1]
+        : choices.find((choice) => choice.id === answer);
+    if (!chosen) {
+      throw new Error(`Invalid selection: ${answer}`);
+    }
+    return chosen.id;
+  } finally {
+    rl.close();
+  }
+}
+
 export async function confirmUnknownTermination(
   input: Readable = process.stdin,
   output: Writable = process.stdout
@@ -889,8 +923,26 @@ export async function runCli(argv = process.argv): Promise<void> {
     case "switch": {
       const projectRoot = resolveProjectRoot(rest[0]);
       const launcher = await createCliLauncher(projectRoot);
-      const target = getFlag(rest, "--to");
-      if (!target) throw new Error("switch requires --to <id>.");
+      let target = getFlag(rest, "--to");
+      if (!target) {
+        // No explicit target: show an interactive picker of installed agents so
+        // the user can choose a tool/account instead of hitting an error.
+        const choices = launcher
+          .registry()
+          .list()
+          .filter(
+            (agent) => agent.id !== "fake-agent" && agent.installation.installed
+          )
+          .map((agent) => ({ id: agent.id, displayName: agent.displayName }));
+        if (process.stdin.isTTY) {
+          target = await promptSelectAdapter(choices);
+        } else {
+          const ids = choices.map((choice) => choice.id).join(", ");
+          throw new Error(
+            `switch requires --to <id>. Available: ${ids || "(none installed)"}.`
+          );
+        }
+      }
       await ensureInitialized(projectRoot, false, store);
       const adapter = await ensureInstalled(target, launcher);
       const runtimeState = await readRuntimeState(projectRoot).catch(
