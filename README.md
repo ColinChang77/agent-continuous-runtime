@@ -43,6 +43,48 @@ Implemented and tested:
 
 ## Installation
 
+### Quick install (recommended)
+
+One line downloads a script that checks your environment, clones the repo,
+builds it, and registers the global `acr` command.
+
+**macOS / Linux** (bash or zsh):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ColinChang77/agent-continuous-runtime/main/scripts/install.sh | bash
+```
+
+**Windows** (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/ColinChang77/agent-continuous-runtime/main/scripts/install.ps1 | iex
+```
+
+After it finishes, verify with:
+
+```bash
+acr --help
+```
+
+The installer clones into `~/.agent-continuity-runtime` by default. You can
+override behavior with environment variables:
+
+| Variable          | Default                          | Purpose                                   |
+| ----------------- | -------------------------------- | ----------------------------------------- |
+| `ACR_INSTALL_DIR` | `~/.agent-continuity-runtime`    | Where to install                          |
+| `ACR_BRANCH`      | `main`                           | Which branch to install                   |
+| `ACR_NO_LINK`     | _(unset)_                        | Set to `1` to skip the global `acr` link  |
+
+If the global command can't be registered (a permissions issue on some
+systems), the installer prints the exact `node dist/acr.js` command to run
+instead.
+
+> Prefer to read a script before piping it to a shell? The sources are
+> [`scripts/install.sh`](scripts/install.sh) and
+> [`scripts/install.ps1`](scripts/install.ps1).
+
+### Manual install (from a cloned repo)
+
 ```bash
 npm install
 npm run build
