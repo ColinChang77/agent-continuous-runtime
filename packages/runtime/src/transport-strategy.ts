@@ -112,7 +112,19 @@ export class PtyTransportStrategy implements TransportStrategy {
 
   async terminate(reason: string): Promise<void> {
     void reason;
-    this.child?.kill("SIGINT");
+    if (!this.child) return;
+    try {
+      // node-pty on Windows does not support POSIX signals: passing one throws
+      // "Signals not supported on windows." Calling kill() with no argument
+      // terminates the pty there, while POSIX still gets a graceful SIGINT.
+      if (process.platform === "win32") {
+        this.child.kill();
+      } else {
+        this.child.kill("SIGINT");
+      }
+    } catch {
+      // The child may have already exited; termination is best-effort.
+    }
   }
 }
 
