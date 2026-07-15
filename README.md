@@ -28,8 +28,11 @@ Implemented and tested:
 - Local continuity store and checkpointing
 - Repository inspection and resume generation
 - MCP server resources, tools, and prompts
-- CLI commands for `init`, `status`, `validate`, `repair`, `checkpoint`, `resume`, `start`, `switch`, `adapters list`, `mcp serve`, and `doctor`
-- PTY-first process runner with deterministic fake-agent failover tests
+- CLI commands for `setup`, `init`, `status`, `validate`, `repair`, `checkpoint`, `resume`, `start`, `switch`, `adapters list`, `mcp serve`, and `doctor`
+- One-line installers (`scripts/install.sh`, `scripts/install.ps1`) with a first-run `acr setup` wizard
+- Beginner-friendly `acr-claude` / `acr-codex` shortcuts with a one-window menu to switch tool/account, restart, or quit
+- Multiple-account adapters (`claude-code-alt`, `codex-alt`) driven by saved config or environment
+- Transport selection with PTY, portable attached (inherit) fallback, and capturing stdio; deterministic fake-agent failover tests
 - Thin Claude Code and Codex adapters for detection, launch, and conservative termination classification
 
 ## Prerequisites
