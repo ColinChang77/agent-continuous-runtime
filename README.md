@@ -141,6 +141,38 @@ account right where you left off — all in one terminal. Choosing a second acco
 for the first time sets it up (creates its own login folder and opens the login)
 on the spot.
 
+## Uninstall
+
+To remove ACR, run the uninstaller for your platform. It undoes what the
+installer did — the global `acr` command and the install directory
+(`~/.agent-continuity-runtime`).
+
+macOS / Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ColinChang77/agent-continuous-runtime/main/scripts/uninstall.sh | bash
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/ColinChang77/agent-continuous-runtime/main/scripts/uninstall.ps1 | iex
+```
+
+Or, from a cloned repo: `bash scripts/uninstall.sh` (`scripts/uninstall.ps1` on
+Windows).
+
+Your saved config at `~/.acr` may contain API keys, so it is **kept by default**
+and you are asked before it is deleted. Flags:
+
+- `--purge` — also delete `~/.acr` (config + saved accounts) without asking
+- `--keep-config` — keep `~/.acr` without asking
+- `-y` / `--yes` (shell only) — non-interactive; keeps `~/.acr`
+
+Your projects' `.agent/` continuity directories are **never** touched — those are
+your per-project records, not install artifacts. Delete them yourself if you no
+longer want a project's history.
+
 ## Five-minute quickstart
 
 ```bash

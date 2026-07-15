@@ -1,5 +1,17 @@
 # Recent Context
 
+- 2026-07-15: Security review of the installer confirmed ACR's own source makes
+  no outbound network calls (no telemetry/analytics, no http/https/net imports),
+  keeps state in local files, and reads git read-only. Network activity is
+  limited to install-time `git clone` + `npm install`, and the wrapped agent CLIs
+  (claude/codex/gemini) talking to their own clouds. API keys are passed to the
+  spawned agent's env and, if saved, written to `~/.acr/config.json` at mode 0600.
+- 2026-07-15: Added uninstaller scripts `scripts/uninstall.sh` and
+  `scripts/uninstall.ps1` (there was none before). They undo `npm link` and remove
+  `~/.agent-continuity-runtime`; `~/.acr` is kept by default (may hold API keys)
+  with `--purge` / `--keep-config` / `-y` flags. Project `.agent/` dirs are never
+  touched. Verified via `bash -n` and fake-dir runs of both keep-config and purge
+  cases. Documented under a new `## Uninstall` section in `README.md`.
 - 2026-07-15: Automatic memory enrichment now runs at real handoff points
   (runtime switch/failover checkpoints and `prepare_handoff`). Manual
   `record_memory` remains available, but it is no longer required for the main
