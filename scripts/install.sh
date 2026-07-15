@@ -43,6 +43,12 @@ if [ "$NODE_MAJOR" -lt "$MIN_NODE_MAJOR" ]; then
   die "Node.js ${MIN_NODE_MAJOR}+ is required, but found $(node -v). Please upgrade."
 fi
 ok "git, Node.js $(node -v), npm $(npm -v)"
+# node-pty (the PTY backend) tracks Node LTS; very new Node majors may lack a
+# working build. ACR still runs interactively via attached mode there, but
+# automatic usage-limit failover works best on an LTS release.
+if [ "$NODE_MAJOR" -gt 24 ]; then
+  warn "Node $(node -v) is newer than the tested LTS line. Interactive use works via attached mode; for full automatic failover, Node 22 LTS is recommended."
+fi
 
 # --- fetch source ----------------------------------------------------------
 if [ -d "$INSTALL_DIR/.git" ]; then

@@ -15,7 +15,8 @@ import {
   createRepositoryInspector,
   createResumeEngine,
   createRuntimeSupervisor,
-  readRuntimeState
+  readRuntimeState,
+  InheritTransportStrategy
 } from "../src/index.js";
 
 const execFileAsync = promisify(execFile);
@@ -236,5 +237,20 @@ describe("runtime supervisor", () => {
 
     expect(classification.kind).toBe("user_interrupt");
     expect(classification.safeToFailover).toBe(false);
+  });
+
+  it("runs the attached (inherit) transport with no native dependency", async () => {
+    const strategy = new InheritTransportStrategy();
+    const result = await strategy.run({
+      command: process.execPath,
+      args: ["-e", "process.exit(3)"],
+      cwd: process.cwd(),
+      env: process.env as Record<string, string>
+    });
+
+    expect(strategy.mode).toBe("spawn");
+    expect(result.exitCode).toBe(3);
+    // Attached mode does not capture output.
+    expect(result.output).toBe("");
   });
 });

@@ -43,4 +43,14 @@
   ("posix_spawnp failed") even after `npm rebuild` — interactive PTY needs
   Node 22 LTS (matches package.json engines >=22). Build/typecheck/lint/tests
   pass; doctor now shows pty available: false on Node 25.
+- 2026-07-14: Portability — added InheritTransportStrategy (stdio: "inherit",
+  no native dep) so interactive agent sessions work on ANY Node/platform even
+  when node-pty is unavailable. StrategyProcessRunner now picks order by
+  interactivity: interactive TTY -> [pty, inherit(spawn), stdio]; non-interactive
+  -> [pty, stdio] (keeps output capture for auto usage-limit classification).
+  Trade-off documented: attached mode can't read output so auto usage-limit
+  failover is reduced there (manual `acr switch` still works); full auto-failover
+  wants Node 22 LTS. Installers warn on Node >24; README has a "Terminal modes"
+  table. Added InheritTransportStrategy test; selection logic verified for both
+  interactive and non-interactive. Build/typecheck/lint/tests pass.
 

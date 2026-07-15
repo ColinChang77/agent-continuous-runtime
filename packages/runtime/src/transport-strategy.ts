@@ -108,6 +108,53 @@ export class PtyTransportStrategy implements TransportStrategy {
   }
 }
 
+/**
+ * Fully attach the agent to the parent's real terminal (stdio: "inherit").
+ *
+ * This works on any Node version and platform with no native dependency, so it
+ * is the portable interactive fallback when a PTY is unavailable. The trade-off
+ * is that ACR cannot read the agent's output here, so termination is classified
+ * from the exit code/signal alone (no reading of "usage limit" text). Automatic
+ * usage-limit failover is therefore reduced; manual `acr switch` still works.
+ */
+export class InheritTransportStrategy implements TransportStrategy {
+  readonly mode = "spawn" as const;
+  private child: ChildProcess | null = null;
+
+  async run(spec: LaunchSpec, hooks?: ProcessRunHooks): Promise<ProcessResult> {
+    return new Promise<ProcessResult>((resolve, reject) => {
+      const child = spawn(spec.command, spec.args, {
+        cwd: spec.cwd,
+        env: spec.env,
+        stdio: "inherit"
+      });
+      this.child = child;
+      child.on("error", reject);
+      hooks?.onTransportSelected?.(this.mode);
+      hooks?.onStarted?.(child.pid ?? null, this.mode);
+
+      child.on("exit", (exitCode, signal) => {
+        this.child = null;
+        hooks?.onExit?.(exitCode, signal);
+        resolve({
+          exitCode,
+          signal,
+          stdout: "",
+          stderr: "",
+          // No capture in attached mode; classification uses exit code/signal.
+          output: "",
+          transport: this.mode
+        });
+      });
+    });
+  }
+
+  async terminate(reason: string): Promise<void> {
+    void reason;
+    this.child?.kill("SIGINT");
+  }
+}
+
 export class StdioTransportStrategy implements TransportStrategy {
   readonly mode = "stdio" as const;
   private child: ChildProcess | null = null;

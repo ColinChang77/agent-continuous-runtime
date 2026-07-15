@@ -283,6 +283,31 @@ node dist/acr.js start . --agent claude-code --fallback codex
 node dist/acr.js start . --agent codex --fallback claude-code
 ```
 
+## Terminal modes (why this matters across Node versions)
+
+Interactive agents (the Claude/Codex TUIs) need a real terminal. ACR selects a
+transport automatically:
+
+| Mode         | Needs node-pty | Interactive       | Reads agent output → auto usage-limit failover |
+| ------------ | -------------- | ----------------- | ---------------------------------------------- |
+| **PTY**      | yes            | yes               | yes (best experience)                          |
+| **Attached** | no             | yes               | no — classifies on exit code; use `acr switch` |
+| **Stdio**    | no             | no (capture only) | yes                                            |
+
+When you run in a real terminal, ACR prefers **PTY**. If node-pty is unavailable
+(common on brand-new Node majors — the native module tracks the Node LTS line),
+ACR automatically falls back to **Attached** mode so the agent TUI still works on
+any Node version and platform; only automatic usage-limit detection is reduced
+there (manual `acr switch` still hands off). For the full automatic-failover
+experience, use **Node 22 LTS**. Non-interactive/CI runs use output-capturing
+transports so classification is unaffected.
+
+Check what your environment supports:
+
+```bash
+node dist/acr.js doctor   # reports "pty available: true/false"
+```
+
 ## Development
 
 ```bash
