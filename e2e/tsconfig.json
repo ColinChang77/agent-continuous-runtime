@@ -1,0 +1,20 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "rootDir": "./tests",
+    "outDir": "./dist",
+    "paths": {
+      "@acr/adapter-fake": ["./packages/adapter-fake"],
+      "@acr/runtime": ["./packages/runtime"],
+      "@acr/test-fixtures": ["./packages/test-fixtures"]
+    },
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
+  },
+  "references": [
+    { "path": "../packages/adapter-fake" },
+    { "path": "../packages/runtime" },
+    { "path": "../packages/test-fixtures" }
+  ],
+  "include": ["tests/**/*.ts"]
+}

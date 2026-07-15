@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023"],
+    "baseUrl": ".",
+    "paths": {
+      "@acr/core": ["packages/core/src/index.ts"],
+      "@acr/adapter-sdk": ["packages/adapter-sdk/src/index.ts"],
+      "@acr/storage-local": ["packages/storage-local/src/index.ts"],
+      "@acr/mcp-server": ["packages/mcp-server/src/index.ts"],
+      "@acr/runtime": ["packages/runtime/src/index.ts"],
+      "@acr/adapter-fake": ["packages/adapter-fake/src/index.ts"],
+      "@acr/adapter-claude-code": ["packages/adapter-claude-code/src/index.ts"],
+      "@acr/adapter-codex": ["packages/adapter-codex/src/index.ts"],
+      "@acr/adapter-gemini": ["packages/adapter-gemini/src/index.ts"],
+      "@acr/example-external-plugin": [
+        "packages/example-external-plugin/src/index.ts"
+      ],
+      "@acr/test-fixtures": ["packages/test-fixtures/src/index.ts"]
+    },
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "incremental": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "outDir": "dist"
+  }
+}

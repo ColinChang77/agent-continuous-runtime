@@ -1,0 +1,55 @@
+{
+  "name": "agent-continuity-runtime",
+  "version": "1.0.0",
+  "description": "Local-first continuity runtime for AI coding agents.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "acr": "./dist/acr.js",
+    "acr-claude": "./dist/acr.js",
+    "acr-codex": "./dist/acr.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*",
+    "e2e"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json && node ./scripts/build-release.mjs",
+    "build:bundle": "node ./scripts/build-release.mjs",
+    "clean": "rm -rf dist .npm-cache packages/*/dist packages/*/tsconfig.tsbuildinfo e2e/dist e2e/tsconfig.tsbuildinfo coverage",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "pack:check": "npm --cache ./.npm-cache pack --dry-run",
+    "test:real-agents": "node ./scripts/real-agent-integration.mjs",
+    "test:real-failover": "node ./scripts/real-failover.mjs",
+    "test": "vitest run",
+    "test:mcp:stdio": "node ./scripts/mcp-stdio-smoke.mjs",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.typecheck.json --pretty false --noEmit",
+    "ci": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build && npm run test:mcp:stdio && npm run pack:check"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.15",
+    "@typescript-eslint/eslint-plugin": "^8.37.0",
+    "@typescript-eslint/parser": "^8.37.0",
+    "esbuild": "^0.28.1",
+    "eslint": "^9.31.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.6.2",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "node-pty": "^1.1.0"
+  }
+}

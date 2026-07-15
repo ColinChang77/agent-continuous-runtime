@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
+  },
+  "references": [
+    { "path": "../core" },
+    { "path": "../adapter-fake" },
+    { "path": "../adapter-claude-code" },
+    { "path": "../adapter-codex" },
+    { "path": "../adapter-gemini" },
+    { "path": "../mcp-server" },
+    { "path": "../runtime" },
+    { "path": "../storage-local" }
+  ],
+  "include": ["src/**/*.ts"]
+}

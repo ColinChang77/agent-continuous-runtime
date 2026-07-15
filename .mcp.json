@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "acr": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/Users/holingchang/Downloads/agent-runtime-os/dist/acr.js",
+        "mcp",
+        "serve",
+        "--project",
+        "/Users/holingchang/Downloads/agent-runtime-os"
+      ],
+      "env": {}
+    }
+  }
+}

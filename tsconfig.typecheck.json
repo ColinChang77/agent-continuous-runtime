@@ -1,0 +1,31 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "paths": {
+      "@acr/core": ["./packages/core/src/index.ts"],
+      "@acr/adapter-sdk": ["./packages/adapter-sdk/src/index.ts"],
+      "@acr/storage-local": ["./packages/storage-local/src/index.ts"],
+      "@acr/mcp-server": ["./packages/mcp-server/src/index.ts"],
+      "@acr/adapter-fake": ["./packages/adapter-fake/src/index.ts"],
+      "@acr/adapter-claude-code": [
+        "./packages/adapter-claude-code/src/index.ts"
+      ],
+      "@acr/adapter-codex": ["./packages/adapter-codex/src/index.ts"],
+      "@acr/adapter-gemini": ["./packages/adapter-gemini/src/index.ts"],
+      "@acr/example-external-plugin": [
+        "./packages/example-external-plugin/src/index.ts"
+      ],
+      "@acr/runtime": ["./packages/runtime/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/**/*.ts",
+    "e2e/**/*.ts",
+    "vitest.config.ts",
+    "eslint.config.js"
+  ]
+}

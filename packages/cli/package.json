@@ -1,0 +1,25 @@
+{
+  "name": "acr",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "acr": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@acr/adapter-fake": "1.0.0",
+    "@acr/adapter-claude-code": "1.0.0",
+    "@acr/adapter-codex": "1.0.0",
+    "@acr/mcp-server": "1.0.0",
+    "@acr/runtime": "1.0.0",
+    "@acr/storage-local": "1.0.0"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "checkpointId": "2026-07-15T04-33-03.402Z_initial",
+  "schemaVersion": "1.0.0",
+  "timestamp": "2026-07-15T04:33:03.403Z",
+  "createdBy": {
+    "agent": "acr",
+    "adapterVersion": "1.0.0",
+    "sessionId": "bootstrap"
+  },
+  "reason": "initialization",
+  "currentStateRevision": 1,
+  "gitHead": null,
+  "branch": null,
+  "statusDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "diffDigest": null,
+  "touchedPaths": {
+    "created": [],
+    "modified": [],
+    "deleted": []
+  },
+  "verificationResults": {
+    "passed": [],
+    "failed": []
+  },
+  "safeToResume": true,
+  "parentCheckpointId": null,
+  "snapshotRefs": []
+}

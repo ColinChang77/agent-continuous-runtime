@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "1.0.0",
+  "revision": 1,
+  "updatedAt": "2026-07-15T04:33:03.398Z",
+  "updatedBy": {
+    "agent": "acr",
+    "adapterVersion": "1.0.0",
+    "sessionId": "bootstrap"
+  },
+  "project": {
+    "id": "754b28115d55ea2259312f62ded6b5d740f0cbcea7e4a5f148d156495b98bf02",
+    "rootFingerprint": "754b28115d55ea2259312f62ded6b5d740f0cbcea7e4a5f148d156495b98bf02",
+    "defaultBranch": "main"
+  },
+  "objective": {
+    "summary": "Set and refine the active repository objective.",
+    "acceptanceCriteria": [],
+    "constraints": [
+      "Inspect repository truth before trusting continuity state."
+    ]
+  },
+  "activeTask": {
+    "id": "BOOTSTRAP",
+    "title": "Initialize continuity state",
+    "status": "in_progress",
+    "startedAt": "2026-07-15T04:33:03.398Z",
+    "lastCheckpointId": null
+  },
+  "completedSteps": [],
+  "inProgressSteps": [
+    "Initialize repository continuity state."
+  ],
+  "nextSteps": [
+    "Inspect the repository and set a concrete task goal."
+  ],
+  "touchedFiles": {
+    "created": [],
+    "modified": [],
+    "deleted": []
+  },
+  "verification": {
+    "commands": [],
+    "passed": [],
+    "failed": [],
+    "notRunReason": "No project-specific verification has run yet."
+  },
+  "knownIssues": [],
+  "blockers": [],
+  "decisions": [],
+  "lastSuccessfulAction": "Initialized continuity state.",
+  "lastFailedAction": null,
+  "recovery": {
+    "resumeFrom": "Inspect the working tree and update the active objective before further edits.",
+    "inspectFirst": [
+      ".agent/CURRENT_STATE.json",
+      ".agent/TASKS.md"
+    ],
+    "doNotRepeat": [],
+    "confidence": "medium"
+  },
+  "repositoryEvidence": {
+    "head": null,
+    "branch": null,
+    "isDirty": false,
+    "statusDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diffDigest": null,
+    "capturedAt": "2026-07-15T04:33:03.398Z"
+  }
+}

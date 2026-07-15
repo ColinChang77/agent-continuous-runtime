@@ -1,0 +1,19 @@
+{
+  "name": "@acr/adapter-fake",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@acr/adapter-sdk": "2.0.0",
+    "@acr/core": "1.0.0",
+    "@acr/test-fixtures": "1.0.0"
+  }
+}
