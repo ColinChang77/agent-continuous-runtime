@@ -77,6 +77,16 @@ if [ "${ACR_NO_LINK:-0}" != "1" ]; then
   fi
 fi
 
+# --- first-run setup wizard ------------------------------------------------
+# Ask, once, what the fallback should be (a second account or the other tool)
+# and save it so everyday use is a bare `acr start .`. Reads from /dev/tty so it
+# still works when this script is piped through `curl ... | bash`.
+if [ "${ACR_NO_SETUP:-0}" != "1" ] && [ -e /dev/tty ]; then
+  info "Quick setup (skip anytime with Ctrl-C, re-run later with 'acr setup')"
+  node "$INSTALL_DIR/dist/acr.js" setup < /dev/tty ||
+    warn "Setup skipped. Run 'acr setup' later to configure your fallback."
+fi
+
 # --- done ------------------------------------------------------------------
 printf '\n%sAgent Continuity Runtime installed.%s\n\n' "$BOLD" "$RESET"
 if [ "$LINKED" = "1" ] && command -v acr >/dev/null 2>&1; then
@@ -90,6 +100,6 @@ else
   echo "  ${BOLD}cd \"$INSTALL_DIR\" && npm link${RESET}"
 fi
 echo
-echo "Get started:"
-echo "  ${BOLD}acr init .${RESET}      # initialize continuity state in your repo"
-echo "  ${BOLD}acr resume .${RESET}    # generate a resume brief"
+echo "Get started (from your project directory):"
+echo "  ${BOLD}acr setup${RESET}      # choose your agent + fallback (if you skipped it)"
+echo "  ${BOLD}acr start .${RESET}    # run your agent with automatic handoff"

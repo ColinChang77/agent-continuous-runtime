@@ -60,7 +60,17 @@ curl -fsSL https://raw.githubusercontent.com/ColinChang77/agent-continuous-runti
 irm https://raw.githubusercontent.com/ColinChang77/agent-continuous-runtime/main/scripts/install.ps1 | iex
 ```
 
-After it finishes, verify with:
+The installer finishes by running a short **setup wizard** (`acr setup`) that
+asks two questions — which agent you use most, and what should take over when it
+hits a usage limit (a second account of the same tool, or the other tool). Your
+answers are saved, so from then on the everyday command is just:
+
+```bash
+acr start .
+```
+
+You can re-run the wizard any time with `acr setup`, or skip it during install
+with `ACR_NO_SETUP=1`. Verify the install with:
 
 ```bash
 acr --help
@@ -168,12 +178,27 @@ node dist/acr.js mcp serve --project /absolute/path/to/repo
 
 ## Multiple accounts (Claude and Codex)
 
+The easiest way to set this up is the wizard:
+
+```bash
+acr setup
+```
+
+It asks which agent you use most and whether the fallback is a second account
+of the same tool or the other tool, creates a folder for the second account's
+login, offers to log you in, and saves everything to `~/.acr/config.json`. After
+that, `acr start .` just works.
+
+The rest of this section documents what the wizard configures under the hood, in
+case you want to set it up manually or in CI.
+
 ACR ships two extra built-in adapters, `claude-code-alt` and `codex-alt`, that
 run the same `claude` / `codex` binary but against a **different account**. This
 keeps separate work/client credentials isolated per project.
 
-Each alt adapter reads its account settings from environment variables and
-falls back to the default account if none are set.
+Each alt adapter takes its account settings from `acr setup` (saved config) or,
+if set, from environment variables (which override the saved config), and falls
+back to the default account if neither is present.
 
 **Claude:**
 

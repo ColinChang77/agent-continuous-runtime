@@ -83,6 +83,18 @@ try {
   Pop-Location
 }
 
+# --- first-run setup wizard ------------------------------------------------
+# Ask, once, what the fallback should be (a second account or the other tool)
+# and save it so everyday use is a bare `acr start .`.
+if ($env:ACR_NO_SETUP -ne '1') {
+  Write-Info "Quick setup (skip anytime with Ctrl-C, re-run later with 'acr setup')"
+  try {
+    node (Join-Path $InstallDir 'dist\acr.js') setup
+  } catch {
+    Write-Warn "Setup skipped. Run 'acr setup' later to configure your fallback."
+  }
+}
+
 # --- done ------------------------------------------------------------------
 Write-Host ''
 Write-Host 'Agent Continuity Runtime installed.' -ForegroundColor White
@@ -98,6 +110,6 @@ if ($Linked -and (Get-Command acr -ErrorAction SilentlyContinue)) {
   Write-Host "  cd `"$InstallDir`"; npm link"
 }
 Write-Host ''
-Write-Host 'Get started:'
-Write-Host '  acr init .      # initialize continuity state in your repo'
-Write-Host '  acr resume .    # generate a resume brief'
+Write-Host 'Get started (from your project directory):'
+Write-Host '  acr setup      # choose your agent + fallback (if you skipped it)'
+Write-Host '  acr start .    # run your agent with automatic handoff'

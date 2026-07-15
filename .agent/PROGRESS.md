@@ -22,4 +22,14 @@
   section renamed to "Multiple accounts (Claude and Codex)". Verified: build,
   typecheck, lint, full tests pass; `adapters list` shows codex-alt; launch spec
   carries alternate CODEX_HOME/API key.
+- 2026-07-14: Simplified UX with an `acr setup` wizard + saved config. New
+  `packages/cli/src/config.ts` reads/writes `~/.acr/config.json` (primary,
+  fallback, per-account home/apiKey/baseUrl). `runSetup` (reads /dev/tty so it
+  works under `curl | bash`) asks primary agent + fallback mode (second account
+  vs other tool), creates the account home dir, offers login, saves defaults.
+  Alt adapters now source env from config (env vars still override). `acr start`
+  with no `--agent`/`--fallback` uses saved defaults, so everyday use is
+  `acr start .`. Installers run the wizard at the end (ACR_NO_SETUP=1 to skip).
+  Added config/wizard tests. Verified flag-free start uses saved primary; build,
+  typecheck, lint, full tests pass.
 

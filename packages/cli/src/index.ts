@@ -1,14 +1,23 @@
 #!/usr/bin/env node
 
+import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
-import { existsSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync } from "node:fs";
 import { access, readFile, readdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import type { Readable, Writable } from "node:stream";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+import {
+  accountEnvOverrides,
+  acrConfigPath,
+  loadAcrConfig,
+  saveAcrConfig
+} from "./config.js";
+import type { AcrConfig } from "./config.js";
 
 import type { AgentPlugin } from "@acr/core";
 import { pluginApiVersion, runtimeVersion } from "@acr/core";
@@ -64,13 +73,14 @@ function renderHelp(): string {
     "  acr-codex [path]",
     "",
     "Commands:",
+    "  acr setup",
     "  acr init [path]",
     "  acr status [path]",
     "  acr validate [path]",
     "  acr repair [path] [--safe]",
     '  acr checkpoint [path] --summary "..." --next "..."',
     "  acr resume [path]",
-    "  acr start [path] --agent <id> [--fallback <id>...] [--init]",
+    "  acr start [path] [--agent <id>] [--fallback <id>...] [--init]",
     "  acr switch [path] --to <id>",
     "  acr health reset [path] [--agent <id>]",
     "  acr adapters list",
@@ -124,7 +134,7 @@ async function runShortcut(
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }
 
-function builtinPlugins(): AgentPlugin[] {
+function builtinPlugins(config: AcrConfig = {}): AgentPlugin[] {
   return [
     {
       manifest: {
@@ -178,21 +188,23 @@ function builtinPlugins(): AgentPlugin[] {
         }
       },
       source: "builtin",
-      // Same `claude` binary, but launched against a different account by
-      // overriding HOME / API key from env. Configure with:
-      //   ACR_CLAUDE_ALT_HOME       separate ~/.claude credential store
-      //   ACR_CLAUDE_ALT_API_KEY    alternate ANTHROPIC_API_KEY
-      //   ACR_CLAUDE_ALT_BASE_URL   alternate ANTHROPIC_BASE_URL
-      // If none are set it behaves like the default account.
+      // Same `claude` binary, but launched against a different account. Account
+      // settings come from `acr setup` (saved config) and can be overridden per
+      // run with ACR_CLAUDE_ALT_HOME / _API_KEY / _BASE_URL. If neither is set
+      // it behaves like the default account.
       createAdapter: () =>
         createClaudeCodeAdapter({
           id: "claude-code-alt",
           displayName: "Claude Code (Alt Account)",
-          envOverrides: {
-            HOME: process.env.ACR_CLAUDE_ALT_HOME,
-            ANTHROPIC_API_KEY: process.env.ACR_CLAUDE_ALT_API_KEY,
-            ANTHROPIC_BASE_URL: process.env.ACR_CLAUDE_ALT_BASE_URL
-          }
+          envOverrides: accountEnvOverrides(
+            config.accounts?.["claude-code-alt"],
+            process.env.ACR_CLAUDE_ALT_HOME,
+            process.env.ACR_CLAUDE_ALT_API_KEY,
+            process.env.ACR_CLAUDE_ALT_BASE_URL,
+            "HOME",
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_BASE_URL"
+          )
         })
     },
     {
@@ -229,21 +241,23 @@ function builtinPlugins(): AgentPlugin[] {
         }
       },
       source: "builtin",
-      // Same `codex` binary, but launched against a different account by
-      // overriding CODEX_HOME / API key from env. Configure with:
-      //   ACR_CODEX_ALT_HOME       separate ~/.codex credential store
-      //   ACR_CODEX_ALT_API_KEY    alternate OPENAI_API_KEY
-      //   ACR_CODEX_ALT_BASE_URL   alternate OPENAI_BASE_URL
-      // If none are set it behaves like the default account.
+      // Same `codex` binary, but launched against a different account. Account
+      // settings come from `acr setup` (saved config) and can be overridden per
+      // run with ACR_CODEX_ALT_HOME / _API_KEY / _BASE_URL. If neither is set it
+      // behaves like the default account.
       createAdapter: () =>
         createCodexAdapter({
           id: "codex-alt",
           displayName: "Codex (Alt Account)",
-          envOverrides: {
-            CODEX_HOME: process.env.ACR_CODEX_ALT_HOME,
-            OPENAI_API_KEY: process.env.ACR_CODEX_ALT_API_KEY,
-            OPENAI_BASE_URL: process.env.ACR_CODEX_ALT_BASE_URL
-          }
+          envOverrides: accountEnvOverrides(
+            config.accounts?.["codex-alt"],
+            process.env.ACR_CODEX_ALT_HOME,
+            process.env.ACR_CODEX_ALT_API_KEY,
+            process.env.ACR_CODEX_ALT_BASE_URL,
+            "CODEX_HOME",
+            "OPENAI_API_KEY",
+            "OPENAI_BASE_URL"
+          )
         })
     },
     {
@@ -277,15 +291,16 @@ function isSafePluginModuleId(moduleId: string): boolean {
 }
 
 async function loadConfiguredPlugins(): Promise<AgentPlugin[]> {
+  const config = loadAcrConfig();
   const configured = process.env.ACR_AGENT_PLUGINS?.split(",")
     .map((value) => value.trim())
     .filter(Boolean);
 
   if (!configured || configured.length === 0) {
-    return builtinPlugins();
+    return builtinPlugins(config);
   }
 
-  const plugins = [...builtinPlugins()];
+  const plugins = [...builtinPlugins(config)];
   for (const moduleId of configured) {
     if (!isSafePluginModuleId(moduleId)) {
       process.stderr.write(
@@ -515,6 +530,122 @@ async function waitForSwitchRelease(projectRoot: string, requestId: string) {
   throw new Error("Timed out waiting for the active runtime to release.");
 }
 
+/**
+ * Return an interactive input stream. Prefers the real terminal so the wizard
+ * still works when stdin is a pipe (e.g. `curl install.sh | bash` spawning it).
+ */
+function interactiveInput(): Readable {
+  if (process.stdin.isTTY) return process.stdin;
+  try {
+    return createReadStream("/dev/tty");
+  } catch {
+    return process.stdin;
+  }
+}
+
+/**
+ * Interactive first-run wizard. Asks for the primary agent and what should take
+ * over on a usage limit (a second account of the same tool, or the other tool),
+ * then saves defaults so everyday use is a bare `acr start .`.
+ */
+export async function runSetup(
+  input: Readable = interactiveInput(),
+  output: Writable = process.stdout
+): Promise<void> {
+  const rl = createInterface({ input, output });
+  const ask = (question: string) => rl.question(question);
+  try {
+    const existing = loadAcrConfig();
+    output.write("\nACR setup — configure your agent and its fallback.\n\n");
+
+    const primaryAnswer = (
+      await ask(
+        "Which agent do you use most?\n  [1] Claude Code\n  [2] Codex\nChoice (default 1): "
+      )
+    ).trim();
+    const primary = primaryAnswer === "2" ? "codex" : "claude-code";
+    const otherTool = primary === "claude-code" ? "codex" : "claude-code";
+    const otherToolName = otherTool === "codex" ? "Codex" : "Claude Code";
+    const altId = `${primary}-alt`;
+
+    const modeAnswer = (
+      await ask(
+        `\nWhen "${primary}" hits a usage limit, switch to:\n` +
+          `  [1] a second account of the same tool\n` +
+          `  [2] the other tool (${otherToolName})\n` +
+          "Choice (default 1): "
+      )
+    ).trim();
+
+    const config: AcrConfig = { ...existing, primary };
+
+    if (modeAnswer === "2") {
+      config.fallback = otherTool;
+    } else {
+      config.fallback = altId;
+      const defaultHome = path.join(os.homedir(), ".acr", "accounts", altId);
+      const homeAnswer = (
+        await ask(
+          `\nFolder to store the second account's login\n(default ${defaultHome}): `
+        )
+      ).trim();
+      const home = homeAnswer || defaultHome;
+      mkdirSync(home, { recursive: true });
+      config.accounts = {
+        ...(existing.accounts ?? {}),
+        [altId]: { ...(existing.accounts?.[altId] ?? {}), home }
+      };
+
+      const loginCommand =
+        primary === "claude-code"
+          ? { command: "claude", args: [] as string[], envKey: "HOME" }
+          : { command: "codex", args: ["login"], envKey: "CODEX_HOME" };
+      const manualLogin =
+        primary === "claude-code"
+          ? `HOME="${home}" claude`
+          : `CODEX_HOME="${home}" codex login`;
+
+      const loginAnswer = (
+        await ask(
+          "\nLog in to that second account now? This opens the tool's login " +
+            "flow. [Y/n]: "
+        )
+      )
+        .trim()
+        .toLowerCase();
+
+      if (loginAnswer !== "n" && loginAnswer !== "no") {
+        const result = spawnSync(loginCommand.command, loginCommand.args, {
+          stdio: "inherit",
+          env: { ...process.env, [loginCommand.envKey]: home }
+        });
+        if (result.error) {
+          output.write(
+            `\nCould not launch "${loginCommand.command}" automatically. ` +
+              `Log in later with:\n  ${manualLogin}\n`
+          );
+        }
+      } else {
+        output.write(`\nLog in later with:\n  ${manualLogin}\n`);
+      }
+    }
+
+    saveAcrConfig(config);
+
+    output.write(`\nSaved to ${acrConfigPath()}:\n`);
+    output.write(`  primary   ${config.primary}\n`);
+    output.write(`  fallback  ${config.fallback}\n\n`);
+    output.write("Done. From your project directory just run:\n");
+    output.write("  acr start .\n\n");
+    output.write(
+      "ACR will run your primary agent and hand off to the fallback on a " +
+        "usage limit.\n"
+    );
+  } finally {
+    rl.close();
+  }
+}
+
 export async function confirmUnknownTermination(
   input: Readable = process.stdin,
   output: Writable = process.stdout
@@ -651,6 +782,10 @@ export async function runCli(argv = process.argv): Promise<void> {
     case "help":
       process.stdout.write(`${renderHelp()}\n`);
       return;
+    case "setup": {
+      await runSetup();
+      return;
+    }
     case "init": {
       const projectRoot = resolveProjectRoot(rest[0]);
       const result = await store.initialize(projectRoot);
@@ -703,11 +838,23 @@ export async function runCli(argv = process.argv): Promise<void> {
     case "start": {
       const projectRoot = resolveProjectRoot(rest[0]);
       const launcher = await createCliLauncher(projectRoot);
-      const agent = getFlag(rest, "--agent");
-      const fallback = getFlagValues(rest, "--fallback");
+      const config = loadAcrConfig();
+      // Fall back to saved `acr setup` defaults so `acr start .` works flag-free.
+      const agent = getFlag(rest, "--agent") ?? config.primary;
+      const flagFallbacks = getFlagValues(rest, "--fallback");
+      const fallback =
+        flagFallbacks.length > 0
+          ? flagFallbacks
+          : config.fallback
+            ? [config.fallback]
+            : [];
       const scenario = getFlag(rest, "--scenario");
       const fallbackScenarios = getFlagValues(rest, "--fallback-scenario");
-      if (!agent) throw new Error("start requires --agent <id>.");
+      if (!agent) {
+        throw new Error(
+          "start requires --agent <id> (or run `acr setup` to save a default)."
+        );
+      }
       await ensureInitialized(projectRoot, hasFlag(rest, "--init"), store);
       const primary = await ensureInstalled(agent, launcher);
       const installedFallbacks =
