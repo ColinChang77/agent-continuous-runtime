@@ -14,4 +14,12 @@
   adapter tests pass; adapter appears in `adapters list` and launch spec carries
   the alternate HOME/API key. Note: usage-limit circumvention remains out of
   scope per project non-goals.
+- 2026-07-14: Added `codex-alt` adapter mirroring `claude-code-alt`.
+  Parameterized `CodexAdapter` (`id`, `displayName`, `envOverrides`), added
+  `CODEX_HOME` to the codex env allow-list, and registered a `builtin.codex-alt`
+  plugin reading `ACR_CODEX_ALT_HOME` (→CODEX_HOME) / `ACR_CODEX_ALT_API_KEY`
+  (→OPENAI_API_KEY) / `ACR_CODEX_ALT_BASE_URL` (→OPENAI_BASE_URL). README
+  section renamed to "Multiple accounts (Claude and Codex)". Verified: build,
+  typecheck, lint, full tests pass; `adapters list` shows codex-alt; launch spec
+  carries alternate CODEX_HOME/API key.
 

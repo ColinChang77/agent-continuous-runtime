@@ -166,14 +166,16 @@ node dist/acr.js mcp serve --project /absolute/path/to/repo
 
 - Register that stdio server in Codex through its MCP configuration commands.
 
-## Multiple Claude accounts
+## Multiple accounts (Claude and Codex)
 
-ACR ships a second built-in adapter, `claude-code-alt`, that runs the same
-`claude` binary but against a **different account**. This is useful for keeping
-separate work/client credentials isolated per project.
+ACR ships two extra built-in adapters, `claude-code-alt` and `codex-alt`, that
+run the same `claude` / `codex` binary but against a **different account**. This
+keeps separate work/client credentials isolated per project.
 
-Configure the alternate account with environment variables (the alt adapter
-falls back to the default account if none are set):
+Each alt adapter reads its account settings from environment variables and
+falls back to the default account if none are set.
+
+**Claude:**
 
 | Variable                  | Purpose                                                                      |
 | ------------------------- | ---------------------------------------------------------------------------- |
@@ -181,32 +183,52 @@ falls back to the default account if none are set):
 | `ACR_CLAUDE_ALT_API_KEY`  | An alternate `ANTHROPIC_API_KEY`                                             |
 | `ACR_CLAUDE_ALT_BASE_URL` | An alternate `ANTHROPIC_BASE_URL`                                            |
 
-The most robust way to separate two logged-in accounts is a separate `HOME`:
+**Codex:**
+
+| Variable                 | Purpose                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------- |
+| `ACR_CODEX_ALT_HOME`     | A separate `CODEX_HOME` so `codex` reads a different `~/.codex` credential store |
+| `ACR_CODEX_ALT_API_KEY`  | An alternate `OPENAI_API_KEY`                                                    |
+| `ACR_CODEX_ALT_BASE_URL` | An alternate `OPENAI_BASE_URL`                                                   |
+
+The most robust way to separate two logged-in accounts is a separate config
+home so each account keeps its own stored login.
+
+Claude example:
 
 ```bash
-# One-time: log the second account into its own HOME
+# One-time: log account B into its own HOME
 mkdir -p ~/claude-account-b
 HOME=~/claude-account-b claude   # complete the login flow for account B
 
 # Then use it through ACR
 export ACR_CLAUDE_ALT_HOME=~/claude-account-b
 node dist/acr.js start . --agent claude-code-alt
+node dist/acr.js switch . --to claude-code-alt   # or switch to it any time
 ```
 
-> Note: if `ANTHROPIC_API_KEY` is set in your shell it takes precedence over the
-> stored login for both adapters. For clean `HOME`-based separation, either
-> unset it or set `ACR_CLAUDE_ALT_API_KEY` explicitly for the alt account.
-
-Switch to it manually at any time:
+Codex example:
 
 ```bash
-node dist/acr.js switch . --to claude-code-alt
+# One-time: log account B into its own CODEX_HOME
+mkdir -p ~/codex-account-b
+CODEX_HOME=~/codex-account-b codex login   # complete the login flow for account B
+
+# Then use it through ACR
+export ACR_CODEX_ALT_HOME=~/codex-account-b
+node dist/acr.js start . --agent codex-alt
+node dist/acr.js switch . --to codex-alt
 ```
 
-You can also list it alongside the others:
+> Note: if `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` is set in your shell it takes
+> precedence over the stored login for both adapters of that vendor. For clean
+> home-based separation, either unset it or set the matching
+> `ACR_*_ALT_API_KEY` explicitly for the alt account.
+
+All four adapters show up together:
 
 ```bash
-node dist/acr.js adapters list   # includes "claude-code-alt"
+node dist/acr.js adapters list   # claude-code, claude-code-alt, codex, codex-alt, ...
 ```
 
 **Important:** using multiple accounts to work around usage limits, billing, or

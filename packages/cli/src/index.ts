@@ -215,6 +215,39 @@ function builtinPlugins(): AgentPlugin[] {
     },
     {
       manifest: {
+        pluginId: "builtin.codex-alt",
+        displayName: "Codex (Alternate Account) Plugin",
+        version: runtimeVersion,
+        acrApiVersion: pluginApiVersion,
+        agentId: "codex-alt",
+        agentDisplayName: "Codex (Alt Account)",
+        declaredCapabilities: ["interactive", "coding", "real-cli"],
+        supportedTransports: ["pty", "stdio", "spawn"],
+        executable: {
+          command: "codex",
+          args: ["--version"]
+        }
+      },
+      source: "builtin",
+      // Same `codex` binary, but launched against a different account by
+      // overriding CODEX_HOME / API key from env. Configure with:
+      //   ACR_CODEX_ALT_HOME       separate ~/.codex credential store
+      //   ACR_CODEX_ALT_API_KEY    alternate OPENAI_API_KEY
+      //   ACR_CODEX_ALT_BASE_URL   alternate OPENAI_BASE_URL
+      // If none are set it behaves like the default account.
+      createAdapter: () =>
+        createCodexAdapter({
+          id: "codex-alt",
+          displayName: "Codex (Alt Account)",
+          envOverrides: {
+            CODEX_HOME: process.env.ACR_CODEX_ALT_HOME,
+            OPENAI_API_KEY: process.env.ACR_CODEX_ALT_API_KEY,
+            OPENAI_BASE_URL: process.env.ACR_CODEX_ALT_BASE_URL
+          }
+        })
+    },
+    {
+      manifest: {
         pluginId: "builtin.gemini",
         displayName: "Gemini Plugin",
         version: runtimeVersion,

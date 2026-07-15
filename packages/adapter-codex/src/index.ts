@@ -16,6 +16,7 @@ import {
 const CODEX_ENV_KEYS = [
   "PATH",
   "HOME",
+  "CODEX_HOME",
   "SHELL",
   "TERM",
   "COLORTERM",
@@ -125,9 +126,36 @@ function classifyOutput(
   };
 }
 
+export interface CodexAdapterOptions {
+  /** Adapter id. Defaults to "codex". Use a distinct id for alt accounts. */
+  id?: string;
+  /** Human-readable name shown in `adapters list`. */
+  displayName?: string;
+  /**
+   * Environment overrides merged on top of the allow-listed process env when
+   * launching `codex`. Use this to point at a different account, e.g. a
+   * separate `CODEX_HOME` (so `codex` reads a different `~/.codex` credential
+   * store) or a different `OPENAI_API_KEY`. Undefined/empty values are ignored,
+   * so callers can pass `process.env.SOMETHING` without guarding.
+   */
+  envOverrides?: Record<string, string | undefined>;
+}
+
 export class CodexAdapter implements AgentAdapter {
-  readonly id = "codex";
-  readonly displayName = "Codex";
+  readonly id: string;
+  readonly displayName: string;
+  private readonly envOverrides: Record<string, string>;
+
+  constructor(options: CodexAdapterOptions = {}) {
+    this.id = options.id ?? "codex";
+    this.displayName = options.displayName ?? "Codex";
+    this.envOverrides = {};
+    for (const [key, value] of Object.entries(options.envOverrides ?? {})) {
+      if (typeof value === "string" && value.length > 0) {
+        this.envOverrides[key] = value;
+      }
+    }
+  }
 
   async detectInstallation() {
     return detectExecutableInstallation("codex");
@@ -146,14 +174,14 @@ export class CodexAdapter implements AgentAdapter {
       command: "codex",
       args: safeArgs(input.resumeInstruction),
       cwd: input.projectRoot,
-      env: allowEnv(process.env, CODEX_ENV_KEYS)
+      env: { ...allowEnv(process.env, CODEX_ENV_KEYS), ...this.envOverrides }
     };
   }
 
   async classifyTermination(
     input: TerminationEvidence
   ): Promise<FailureClassification> {
-    return classifyOutput(input, "Codex");
+    return classifyOutput(input, this.displayName);
   }
 
   async buildResumeInstruction(input: ResumeInstructionInput): Promise<string> {
@@ -167,6 +195,8 @@ export const codexAdapterDescriptor = {
   description: "OpenAI Codex adapter."
 };
 
-export function createCodexAdapter(): AgentAdapter {
-  return new CodexAdapter();
+export function createCodexAdapter(
+  options?: CodexAdapterOptions
+): AgentAdapter {
+  return new CodexAdapter(options);
 }
