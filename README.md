@@ -69,11 +69,11 @@ acr --help
 The installer clones into `~/.agent-continuity-runtime` by default. You can
 override behavior with environment variables:
 
-| Variable          | Default                          | Purpose                                   |
-| ----------------- | -------------------------------- | ----------------------------------------- |
-| `ACR_INSTALL_DIR` | `~/.agent-continuity-runtime`    | Where to install                          |
-| `ACR_BRANCH`      | `main`                           | Which branch to install                   |
-| `ACR_NO_LINK`     | _(unset)_                        | Set to `1` to skip the global `acr` link  |
+| Variable          | Default                       | Purpose                                  |
+| ----------------- | ----------------------------- | ---------------------------------------- |
+| `ACR_INSTALL_DIR` | `~/.agent-continuity-runtime` | Where to install                         |
+| `ACR_BRANCH`      | `main`                        | Which branch to install                  |
+| `ACR_NO_LINK`     | _(unset)_                     | Set to `1` to skip the global `acr` link |
 
 If the global command can't be registered (a permissions issue on some
 systems), the installer prints the exact `node dist/acr.js` command to run
@@ -165,6 +165,54 @@ node dist/acr.js mcp serve --project /absolute/path/to/repo
 ```
 
 - Register that stdio server in Codex through its MCP configuration commands.
+
+## Multiple Claude accounts
+
+ACR ships a second built-in adapter, `claude-code-alt`, that runs the same
+`claude` binary but against a **different account**. This is useful for keeping
+separate work/client credentials isolated per project.
+
+Configure the alternate account with environment variables (the alt adapter
+falls back to the default account if none are set):
+
+| Variable                  | Purpose                                                                      |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| `ACR_CLAUDE_ALT_HOME`     | A separate `HOME` so `claude` reads a different `~/.claude` credential store |
+| `ACR_CLAUDE_ALT_API_KEY`  | An alternate `ANTHROPIC_API_KEY`                                             |
+| `ACR_CLAUDE_ALT_BASE_URL` | An alternate `ANTHROPIC_BASE_URL`                                            |
+
+The most robust way to separate two logged-in accounts is a separate `HOME`:
+
+```bash
+# One-time: log the second account into its own HOME
+mkdir -p ~/claude-account-b
+HOME=~/claude-account-b claude   # complete the login flow for account B
+
+# Then use it through ACR
+export ACR_CLAUDE_ALT_HOME=~/claude-account-b
+node dist/acr.js start . --agent claude-code-alt
+```
+
+> Note: if `ANTHROPIC_API_KEY` is set in your shell it takes precedence over the
+> stored login for both adapters. For clean `HOME`-based separation, either
+> unset it or set `ACR_CLAUDE_ALT_API_KEY` explicitly for the alt account.
+
+Switch to it manually at any time:
+
+```bash
+node dist/acr.js switch . --to claude-code-alt
+```
+
+You can also list it alongside the others:
+
+```bash
+node dist/acr.js adapters list   # includes "claude-code-alt"
+```
+
+**Important:** using multiple accounts to work around usage limits, billing, or
+other vendor controls is out of scope (see "What ACR does not do"). Account
+separation is intended for legitimately distinct identities, e.g. isolating a
+client's credentials from your own.
 
 ## Manual handoff
 

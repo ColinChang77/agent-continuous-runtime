@@ -114,7 +114,8 @@ async function runShortcut(
     fallbacks,
     ...(scenario ? { scenario } : {}),
     fallbackScenarios,
-    resolveAdapterById: (adapterId) => launcher.registry().get(adapterId)?.adapter
+    resolveAdapterById: (adapterId) =>
+      launcher.registry().get(adapterId)?.adapter
   });
 
   if (result.classification.kind === "unknown" && process.stdin.isTTY) {
@@ -160,6 +161,39 @@ function builtinPlugins(): AgentPlugin[] {
       },
       source: "builtin",
       createAdapter: () => createClaudeCodeAdapter()
+    },
+    {
+      manifest: {
+        pluginId: "builtin.claude-code-alt",
+        displayName: "Claude Code (Alternate Account) Plugin",
+        version: runtimeVersion,
+        acrApiVersion: pluginApiVersion,
+        agentId: "claude-code-alt",
+        agentDisplayName: "Claude Code (Alt Account)",
+        declaredCapabilities: ["interactive", "coding", "real-cli"],
+        supportedTransports: ["pty", "stdio", "spawn"],
+        executable: {
+          command: "claude",
+          args: ["--version"]
+        }
+      },
+      source: "builtin",
+      // Same `claude` binary, but launched against a different account by
+      // overriding HOME / API key from env. Configure with:
+      //   ACR_CLAUDE_ALT_HOME       separate ~/.claude credential store
+      //   ACR_CLAUDE_ALT_API_KEY    alternate ANTHROPIC_API_KEY
+      //   ACR_CLAUDE_ALT_BASE_URL   alternate ANTHROPIC_BASE_URL
+      // If none are set it behaves like the default account.
+      createAdapter: () =>
+        createClaudeCodeAdapter({
+          id: "claude-code-alt",
+          displayName: "Claude Code (Alt Account)",
+          envOverrides: {
+            HOME: process.env.ACR_CLAUDE_ALT_HOME,
+            ANTHROPIC_API_KEY: process.env.ACR_CLAUDE_ALT_API_KEY,
+            ANTHROPIC_BASE_URL: process.env.ACR_CLAUDE_ALT_BASE_URL
+          }
+        })
     },
     {
       manifest: {

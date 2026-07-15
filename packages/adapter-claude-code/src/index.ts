@@ -125,9 +125,36 @@ function classifyOutput(
   };
 }
 
+export interface ClaudeCodeAdapterOptions {
+  /** Adapter id. Defaults to "claude-code". Use a distinct id for alt accounts. */
+  id?: string;
+  /** Human-readable name shown in `adapters list`. */
+  displayName?: string;
+  /**
+   * Environment overrides merged on top of the allow-listed process env when
+   * launching `claude`. Use this to point at a different account, e.g. a
+   * separate `HOME` (so `claude` reads a different `~/.claude` credential
+   * store) or a different `ANTHROPIC_API_KEY`. Undefined/empty values are
+   * ignored, so callers can pass `process.env.SOMETHING` without guarding.
+   */
+  envOverrides?: Record<string, string | undefined>;
+}
+
 export class ClaudeCodeAdapter implements AgentAdapter {
-  readonly id = "claude-code";
-  readonly displayName = "Claude Code";
+  readonly id: string;
+  readonly displayName: string;
+  private readonly envOverrides: Record<string, string>;
+
+  constructor(options: ClaudeCodeAdapterOptions = {}) {
+    this.id = options.id ?? "claude-code";
+    this.displayName = options.displayName ?? "Claude Code";
+    this.envOverrides = {};
+    for (const [key, value] of Object.entries(options.envOverrides ?? {})) {
+      if (typeof value === "string" && value.length > 0) {
+        this.envOverrides[key] = value;
+      }
+    }
+  }
 
   async detectInstallation() {
     return detectExecutableInstallation("claude");
@@ -146,14 +173,14 @@ export class ClaudeCodeAdapter implements AgentAdapter {
       command: "claude",
       args: safeArgs(input.resumeInstruction),
       cwd: input.projectRoot,
-      env: allowEnv(process.env, CLAUDE_ENV_KEYS)
+      env: { ...allowEnv(process.env, CLAUDE_ENV_KEYS), ...this.envOverrides }
     };
   }
 
   async classifyTermination(
     input: TerminationEvidence
   ): Promise<FailureClassification> {
-    return classifyOutput(input, "Claude Code");
+    return classifyOutput(input, this.displayName);
   }
 
   async buildResumeInstruction(input: ResumeInstructionInput): Promise<string> {
@@ -167,6 +194,8 @@ export const claudeCodeAdapterDescriptor = {
   description: "Anthropic Claude Code adapter."
 };
 
-export function createClaudeCodeAdapter(): AgentAdapter {
-  return new ClaudeCodeAdapter();
+export function createClaudeCodeAdapter(
+  options?: ClaudeCodeAdapterOptions
+): AgentAdapter {
+  return new ClaudeCodeAdapter(options);
 }
