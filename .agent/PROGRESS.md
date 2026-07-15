@@ -84,4 +84,11 @@
   behavior. This removes the two-terminal `acr switch` requirement for the common
   case. Added menu tests; build/lint/full tests pass. Rationale: user asked for a
   dead-simple single-window flow for non-technical users.
+- 2026-07-15: Discoverability — a first-time user had no way to know they must
+  type /exit to reach the switch menu. runAgentLoop now shows a gated intro
+  ("Press Enter to start...") before the first launch explaining that /exit (or
+  Ctrl-C) brings up the menu; later launches show a one-line reminder. Honest
+  limitation documented: the menu cannot auto-pop mid-session in attached mode
+  (ACR can't see agent output or inject while the agent owns the terminal) —
+  true auto-pop-on-limit needs a working PTY (Node 22). Build/lint/tests pass.
 

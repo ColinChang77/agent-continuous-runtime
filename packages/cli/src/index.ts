@@ -798,6 +798,33 @@ async function ensureAltAccountConfigured(
  * user can switch tools/accounts, restart, or quit — all in the same terminal
  * without extra commands. This backs the `acr-claude` / `acr-codex` shortcuts.
  */
+/**
+ * Explain, before the first launch, how to get back to the switch menu. The
+ * agent's own UI often clears the screen on startup, so this is gated behind
+ * "Press Enter" to make sure a first-time user actually reads it.
+ */
+async function printSessionIntro(
+  agentId: string,
+  input: Readable = interactiveInput(),
+  output: Writable = process.stdout
+): Promise<void> {
+  const name = toolDisplayName(baseTool(agentId));
+  output.write(`\n──────────────────────────────────────────\n`);
+  output.write(` Starting ${name}.\n\n`);
+  output.write(` When you are done — or if you hit a usage limit — type\n`);
+  output.write(`   /exit\n`);
+  output.write(` inside ${name} (or press Ctrl-C). A menu will appear right\n`);
+  output.write(` here so you can switch to another tool or account and keep\n`);
+  output.write(` going. Your progress is saved automatically.\n`);
+  output.write(`──────────────────────────────────────────\n`);
+  const rl = createInterface({ input, output });
+  try {
+    await rl.question("Press Enter to start... ");
+  } finally {
+    rl.close();
+  }
+}
+
 async function runAgentLoop(
   projectRoot: string,
   startAgentId: string,
@@ -805,10 +832,22 @@ async function runAgentLoop(
 ): Promise<void> {
   await ensureInitialized(projectRoot, true, store);
   let currentAgentId = startAgentId;
+  let firstLaunch = true;
 
   for (;;) {
     const launcher = await createCliLauncher(projectRoot);
     const adapter = await ensureInstalled(currentAgentId, launcher);
+    if (process.stdout.isTTY && process.stdin.isTTY) {
+      if (firstLaunch) {
+        await printSessionIntro(currentAgentId);
+      } else {
+        const name = toolDisplayName(baseTool(currentAgentId));
+        process.stdout.write(
+          `\nStarting ${name} — type /exit inside it to return to the menu.\n`
+        );
+      }
+    }
+    firstLaunch = false;
     const supervisor = createRuntimeSupervisor();
     const result = await supervisor.startSession({
       projectRoot,
