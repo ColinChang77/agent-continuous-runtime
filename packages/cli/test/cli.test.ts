@@ -12,6 +12,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   confirmUnknownTermination,
+  postSessionChoices,
+  promptPostSession,
   promptSelectAdapter,
   runCli,
   shortcutModeFromArgv
@@ -171,6 +173,48 @@ describe("CLI", () => {
     );
 
     expect(chosen).toBe("codex");
+  });
+
+  it("offers switch/restart/quit in the post-session menu", () => {
+    const fromClaude = postSessionChoices("claude-code");
+    expect(fromClaude[0].action).toEqual({ kind: "switch", agentId: "codex" });
+    expect(fromClaude[1].action).toEqual({
+      kind: "switch",
+      agentId: "claude-code-alt"
+    });
+    expect(fromClaude[2].action).toEqual({
+      kind: "restart",
+      agentId: "claude-code"
+    });
+    expect(fromClaude[3].action).toEqual({ kind: "quit" });
+
+    // From an alt account, option 2 switches back to the main account.
+    const fromAlt = postSessionChoices("claude-code-alt");
+    expect(fromAlt[1].action).toEqual({
+      kind: "switch",
+      agentId: "claude-code"
+    });
+  });
+
+  it("reads a post-session choice and defaults a blank answer to quit", async () => {
+    const pick = new PassThrough();
+    const out1 = new PassThrough();
+    out1.on("data", (chunk) => {
+      if (String(chunk).trimEnd().endsWith(":")) pick.write("1\n");
+    });
+    await expect(promptPostSession("codex", pick, out1)).resolves.toEqual({
+      kind: "switch",
+      agentId: "claude-code"
+    });
+
+    const blank = new PassThrough();
+    const out2 = new PassThrough();
+    out2.on("data", (chunk) => {
+      if (String(chunk).trimEnd().endsWith(":")) blank.write("\n");
+    });
+    await expect(promptPostSession("codex", blank, out2)).resolves.toEqual({
+      kind: "quit"
+    });
   });
 
   it("detects shortcut entrypoints from the invoked binary name", async () => {

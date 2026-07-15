@@ -107,31 +107,11 @@ async function runShortcut(
   argv: string[],
   store: ReturnType<typeof createLocalStore>
 ) {
-  const fallbackId = agentId === "claude-code" ? "codex" : "claude-code";
   const pathArg = argv[2];
   const projectRoot = resolveProjectRoot(isFlag(pathArg) ? undefined : pathArg);
-  const rest = isFlag(pathArg) ? argv.slice(2) : argv.slice(3);
-  const launcher = await createCliLauncher(projectRoot);
-  await ensureInitialized(projectRoot, true, store);
-  const primary = await ensureInstalled(agentId, launcher);
-  const fallbacks = await detectFallbacks([fallbackId], launcher);
-  const scenario = getFlag(rest, "--scenario");
-  const fallbackScenarios = getFlagValues(rest, "--fallback-scenario");
-  const supervisor = createRuntimeSupervisor();
-  const result = await supervisor.startSession({
-    projectRoot,
-    agent: primary,
-    fallbacks,
-    ...(scenario ? { scenario } : {}),
-    fallbackScenarios,
-    resolveAdapterById: (adapterId) =>
-      launcher.registry().get(adapterId)?.adapter
-  });
-
-  if (result.classification.kind === "unknown" && process.stdin.isTTY) {
-    await confirmUnknownTermination();
-  }
-  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  // Run the agent and, when it ends, offer the one-window menu to switch
+  // tools/accounts, restart, or quit — no second terminal, no commands.
+  await runAgentLoop(projectRoot, agentId, store);
 }
 
 function builtinPlugins(config: AcrConfig = {}): AgentPlugin[] {
@@ -677,6 +657,191 @@ export async function promptSelectAdapter(
     return chosen.id;
   } finally {
     rl.close();
+  }
+}
+
+export type SessionAction =
+  | { kind: "switch"; agentId: string }
+  | { kind: "restart"; agentId: string }
+  | { kind: "quit" };
+
+function baseTool(agentId: string): "claude-code" | "codex" {
+  return agentId.startsWith("codex") ? "codex" : "claude-code";
+}
+
+function toolDisplayName(base: "claude-code" | "codex"): string {
+  return base === "codex" ? "Codex" : "Claude Code";
+}
+
+/**
+ * The menu shown after an agent session ends, in one window: switch tool, switch
+ * account of the same tool, restart, or quit. Pure so it can be unit-tested.
+ */
+export function postSessionChoices(
+  currentAgentId: string
+): Array<{ label: string; action: SessionAction }> {
+  const base = baseTool(currentAgentId);
+  const otherTool = base === "claude-code" ? "codex" : "claude-code";
+  const isAlt = currentAgentId.endsWith("-alt");
+  const otherAccountId = isAlt ? base : `${base}-alt`;
+  const currentName = toolDisplayName(base);
+
+  return [
+    {
+      label: `Continue with ${toolDisplayName(otherTool)} (use this if you hit a usage limit)`,
+      action: { kind: "switch", agentId: otherTool }
+    },
+    {
+      label: isAlt
+        ? `Switch back to your main ${currentName} account`
+        : `Continue with a second ${currentName} account`,
+      action: { kind: "switch", agentId: otherAccountId }
+    },
+    {
+      label: `Restart ${currentName}`,
+      action: { kind: "restart", agentId: currentAgentId }
+    },
+    { label: "Quit", action: { kind: "quit" } }
+  ];
+}
+
+/**
+ * Show the post-session menu and return the chosen action.
+ */
+export async function promptPostSession(
+  currentAgentId: string,
+  input: Readable = interactiveInput(),
+  output: Writable = process.stdout
+): Promise<SessionAction> {
+  const choices = postSessionChoices(currentAgentId);
+  const rl = createInterface({ input, output });
+  try {
+    const name = toolDisplayName(baseTool(currentAgentId));
+    output.write(`\n──────────────────────────────────────────\n`);
+    output.write(`${name} ended. What would you like to do next?\n`);
+    choices.forEach((choice, index) => {
+      output.write(`  [${index + 1}] ${choice.label}\n`);
+    });
+    output.write(`──────────────────────────────────────────\n`);
+    const answer = (await rl.question(`Choose (1-${choices.length}): `)).trim();
+    const picked = Number.parseInt(answer, 10);
+    const chosen =
+      Number.isInteger(picked) && picked >= 1 && picked <= choices.length
+        ? choices[picked - 1]
+        : undefined;
+    // Default to quit on an empty/invalid answer so a stray Enter is harmless.
+    return chosen ? chosen.action : { kind: "quit" };
+  } finally {
+    rl.close();
+  }
+}
+
+/**
+ * Ensure a second-account adapter (e.g. claude-code-alt) has its own login
+ * directory configured, setting it up inline if not. Returns true when the
+ * account is ready to use.
+ */
+async function ensureAltAccountConfigured(
+  altId: string,
+  input: Readable = interactiveInput(),
+  output: Writable = process.stdout
+): Promise<boolean> {
+  const config = loadAcrConfig();
+  if (config.accounts?.[altId]?.home) return true;
+
+  const base = baseTool(altId);
+  const home = path.join(os.homedir(), ".acr", "accounts", altId);
+  const rl = createInterface({ input, output });
+  try {
+    output.write(
+      `\nYou haven't set up a second ${toolDisplayName(base)} account yet.\n`
+    );
+    const go = (await rl.question("Set one up now? It opens a login. [Y/n]: "))
+      .trim()
+      .toLowerCase();
+    if (go === "n" || go === "no") return false;
+
+    mkdirSync(home, { recursive: true });
+    saveAcrConfig({
+      ...config,
+      accounts: {
+        ...(config.accounts ?? {}),
+        [altId]: { ...(config.accounts?.[altId] ?? {}), home }
+      }
+    });
+
+    const login =
+      base === "claude-code"
+        ? { command: "claude", args: [] as string[], envKey: "HOME" }
+        : { command: "codex", args: ["login"], envKey: "CODEX_HOME" };
+    output.write(
+      `\nOpening ${login.command} to log in the second account...\n`
+    );
+    const result = spawnSync(login.command, login.args, {
+      stdio: "inherit",
+      env: { ...process.env, [login.envKey]: home }
+    });
+    if (result.error) {
+      output.write(
+        `Could not open ${login.command} automatically. Set it up later with 'acr setup'.\n`
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    rl.close();
+  }
+}
+
+/**
+ * Run an agent, then present the one-window menu when it ends, looping so the
+ * user can switch tools/accounts, restart, or quit — all in the same terminal
+ * without extra commands. This backs the `acr-claude` / `acr-codex` shortcuts.
+ */
+async function runAgentLoop(
+  projectRoot: string,
+  startAgentId: string,
+  store: ReturnType<typeof createLocalStore>
+): Promise<void> {
+  await ensureInitialized(projectRoot, true, store);
+  let currentAgentId = startAgentId;
+
+  for (;;) {
+    const launcher = await createCliLauncher(projectRoot);
+    const adapter = await ensureInstalled(currentAgentId, launcher);
+    const supervisor = createRuntimeSupervisor();
+    const result = await supervisor.startSession({
+      projectRoot,
+      agent: adapter,
+      fallbacks: [],
+      resolveAdapterById: (adapterId) =>
+        launcher.registry().get(adapterId)?.adapter
+    });
+
+    // Non-interactive (piped/CI): keep the old behavior and stop.
+    if (!process.stdin.isTTY) {
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      return;
+    }
+
+    const action = await promptPostSession(currentAgentId);
+    if (action.kind === "quit") {
+      process.stdout.write("\nDone. Your progress is saved.\n");
+      return;
+    }
+    if (action.kind === "restart") {
+      currentAgentId = action.agentId;
+      continue;
+    }
+    // action.kind === "switch"
+    if (
+      action.agentId.endsWith("-alt") &&
+      !(await ensureAltAccountConfigured(action.agentId).catch(() => false))
+    ) {
+      // Setup declined/failed — return to the same agent's menu next loop.
+      continue;
+    }
+    currentAgentId = action.agentId;
   }
 }
 

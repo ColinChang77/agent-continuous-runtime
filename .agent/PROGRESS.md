@@ -73,4 +73,15 @@
   non-interactive path lists available ids in the error. User expected `switch`
   to present tool options. Excludes fake-agent from the menu. Added a menu test;
   updated help text. Build/lint/tests pass.
+- 2026-07-15: One-window, menu-driven UX for beginners. `acr-claude`/`acr-codex`
+  now run through runAgentLoop: after the agent ends, a numbered menu appears in
+  the SAME terminal (postSessionChoices/promptPostSession) — continue with the
+  other tool, continue with a second account of the same tool, restart, or quit.
+  ACR checkpoints between iterations so the next agent resumes where the last
+  left off. Picking a not-yet-configured second account runs an inline setup
+  (ensureAltAccountConfigured: creates login dir, opens login, saves config).
+  Blank/invalid answer defaults to quit. Non-interactive keeps JSON-output
+  behavior. This removes the two-terminal `acr switch` requirement for the common
+  case. Added menu tests; build/lint/full tests pass. Rationale: user asked for a
+  dead-simple single-window flow for non-technical users.
 

@@ -106,18 +106,32 @@ For local CLI usage during development:
 node dist/acr.js --help
 ```
 
-After install/build, ACR also exposes direct shortcut entrypoints for the two
-primary supervised flows:
+After install/build, ACR also exposes two beginner-friendly entrypoints. Run one
+in your project folder and just work — no flags, no second terminal:
 
 ```bash
-acr-claude
-acr-codex
+acr-claude   # start with Claude Code
+acr-codex    # start with Codex
 ```
 
-Those shortcuts are equivalent to starting ACR supervision with:
+When the agent ends (you quit it, or you hit a usage limit and quit), ACR shows
+a simple menu **in the same window**:
 
-- `acr-claude`: Claude Code primary, Codex fallback
-- `acr-codex`: Codex primary, Claude Code fallback
+```
+──────────────────────────────────────────
+Claude Code ended. What would you like to do next?
+  [1] Continue with Codex (use this if you hit a usage limit)
+  [2] Continue with a second Claude Code account
+  [3] Restart Claude Code
+  [4] Quit
+──────────────────────────────────────────
+Choose (1-4):
+```
+
+Pick a number and ACR checkpoints your progress, then launches the chosen tool or
+account right where you left off — all in one terminal. Choosing a second account
+for the first time sets it up (creates its own login folder and opens the login)
+on the spot.
 
 ## Five-minute quickstart
 
