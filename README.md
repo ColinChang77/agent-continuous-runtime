@@ -7,6 +7,7 @@ Agent Continuity Runtime (ACR) is a local-first continuity layer for AI coding a
 - Stores portable continuity state under `.agent/`
 - Stores machine-local runtime state under `.acr/`
 - Generates evidence-backed resume briefs from state plus repository inspection
+- Carries forward structured conversation memory such as user intent, constraints, preferences, rejected approaches, and open questions
 - Exposes continuity through an MCP server over stdio
 - Supervises agent processes and performs best-effort failover
 - Preserves work by checkpointing before and after handoff
@@ -27,6 +28,7 @@ Implemented and tested:
 
 - Local continuity store and checkpointing
 - Repository inspection and resume generation
+- Structured conversation memory for cross-tool handoff without storing full transcripts by default
 - MCP server resources, tools, and prompts
 - CLI commands for `setup`, `init`, `status`, `validate`, `repair`, `checkpoint`, `resume`, `start`, `switch`, `adapters list`, `mcp serve`, and `doctor`
 - One-line installers (`scripts/install.sh`, `scripts/install.ps1`) with a first-run `acr setup` wizard
@@ -45,6 +47,9 @@ Implemented and tested:
   - `codex` installed and authenticated
 
 ## Installation
+
+For paid customer delivery using a packaged `.tgz` instead of the full source
+repository, see [`COMMERCIAL_DELIVERY.md`](COMMERCIAL_DELIVERY.md).
 
 ### Quick install (recommended)
 

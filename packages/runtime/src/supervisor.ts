@@ -5,6 +5,7 @@ import { createRuntimeEventPipeline } from "./event-pipeline.js";
 import { createFailureClassifier } from "./failure-classifier.js";
 import type { DefaultFailureClassifier } from "./failure-classifier.js";
 import { createAgentHealthStore } from "./health-store.js";
+import { applyAutomaticConversationMemory } from "./conversation-memory.js";
 import {
   createRepositoryInspector,
   createStatusDigest
@@ -308,12 +309,29 @@ export class RuntimeSupervisor {
     const summary = switchRequest
       ? `Manual switch requested while ${adapter.id} was active. Repository truth was checkpointed; narrative intent may lag behind repository state.`
       : `Agent ${adapter.id} exited with ${classification.kind}. Repository truth was checkpointed; narrative intent may lag behind repository state.`;
+    const stateWithMemory = await this.store.writeCurrentState(
+      projectRoot,
+      {
+        ...currentState,
+        conversationMemory: applyAutomaticConversationMemory(currentState, {
+          agentId: adapter.id,
+          ...(switchRequest?.targetAdapterId
+            ? { targetAgentId: switchRequest.targetAdapterId }
+            : {}),
+          failureKind: reason,
+          handoffSummary: summary,
+          nextAction: currentState.recovery.resumeFrom,
+          changedFiles: brief.changedFiles
+        })
+      },
+      currentState.revision
+    );
     const checkpoint = await this.store.createCheckpoint(projectRoot, {
       checkpointId: `${new Date().toISOString().replaceAll(":", "-")}_${adapter.id}`,
       reason,
       summary,
       handoff: resumeInstruction,
-      currentState,
+      currentState: stateWithMemory,
       safeToResume: switchRequest ? true : classification.safeToFailover
     });
     this.eventPipeline.emit({

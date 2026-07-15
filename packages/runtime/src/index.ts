@@ -5,6 +5,7 @@ export function createRuntimeBanner(adapter: AgentAdapterDescriptor): string {
 }
 
 export * from "./repository-inspector.js";
+export * from "./conversation-memory.js";
 export * from "./resume-engine.js";
 export * from "./event-pipeline.js";
 export * from "./failure-classifier.js";

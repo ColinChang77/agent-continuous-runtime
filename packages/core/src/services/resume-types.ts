@@ -37,6 +37,14 @@ export interface ResumeBrief {
   changedFiles: string[];
   warnings: string[];
   repository: RepositorySnapshot;
+  conversationMemory: {
+    userIntent: string;
+    userConstraints: string[];
+    userPreferences: string[];
+    rejectedApproaches: string[];
+    openQuestions: string[];
+    importantContext: string[];
+  };
 }
 
 export interface ReconcileResult {

@@ -7,6 +7,7 @@ import {
   type DocumentName
 } from "@acr/core";
 import {
+  applyAutomaticConversationMemory,
   createResumeEngine,
   createRepositoryInspector,
   createStatusDigest
@@ -28,7 +29,12 @@ function nowIso(): string {
 type StatePatch = Partial<
   Omit<
     CurrentState,
-    "objective" | "activeTask" | "touchedFiles" | "verification" | "recovery"
+    | "objective"
+    | "activeTask"
+    | "touchedFiles"
+    | "verification"
+    | "recovery"
+    | "conversationMemory"
   >
 > & {
   objective?: Partial<CurrentState["objective"]>;
@@ -36,6 +42,7 @@ type StatePatch = Partial<
   touchedFiles?: Partial<CurrentState["touchedFiles"]>;
   verification?: Partial<CurrentState["verification"]>;
   recovery?: Partial<CurrentState["recovery"]>;
+  conversationMemory?: Partial<CurrentState["conversationMemory"]>;
 };
 
 export interface ProjectServiceOptions {
@@ -189,6 +196,9 @@ export class ProjectService {
       verification: patch.verification
         ? { ...current.verification, ...patch.verification }
         : current.verification,
+      conversationMemory: patch.conversationMemory
+        ? { ...current.conversationMemory, ...patch.conversationMemory }
+        : current.conversationMemory,
       recovery: patch.recovery
         ? { ...current.recovery, ...patch.recovery }
         : current.recovery
@@ -292,6 +302,90 @@ export class ProjectService {
 
   async readResource(projectRoot: string, name: DocumentName) {
     return this.store.readDocument(projectRoot, name);
+  }
+
+  async recordConversationMemory(
+    projectRoot: string,
+    expectedRevision: number,
+    memory: {
+      userIntent?: string;
+      userConstraints?: string[];
+      userPreferences?: string[];
+      rejectedApproaches?: string[];
+      openQuestions?: string[];
+      importantContext?: string[];
+    }
+  ): Promise<CurrentState> {
+    const normalizeList = (values?: string[]) =>
+      (values ?? []).map((value) => value.trim()).filter(Boolean);
+
+    return this.updateState(projectRoot, expectedRevision, {
+      conversationMemory: {
+        ...(typeof memory.userIntent === "string"
+          ? { userIntent: memory.userIntent.trim() }
+          : {}),
+        ...(memory.userConstraints
+          ? { userConstraints: normalizeList(memory.userConstraints) }
+          : {}),
+        ...(memory.userPreferences
+          ? { userPreferences: normalizeList(memory.userPreferences) }
+          : {}),
+        ...(memory.rejectedApproaches
+          ? {
+              rejectedApproaches: normalizeList(memory.rejectedApproaches)
+            }
+          : {}),
+        ...(memory.openQuestions
+          ? { openQuestions: normalizeList(memory.openQuestions) }
+          : {}),
+        ...(memory.importantContext
+          ? { importantContext: normalizeList(memory.importantContext) }
+          : {})
+      }
+    });
+  }
+
+  async autoRecordHandoffMemory(
+    projectRoot: string,
+    input: {
+      agentId?: string;
+      targetAgentId?: string;
+      failureKind?: Parameters<typeof applyAutomaticConversationMemory>[1]["failureKind"];
+      handoffSummary?: string;
+      nextAction?: string;
+      changedFiles?: string[];
+    }
+  ): Promise<CurrentState> {
+    const current = await this.store.readCurrentState(projectRoot);
+    const normalizedInput = {
+      ...(input.agentId !== undefined ? { agentId: input.agentId } : {}),
+      ...(input.targetAgentId !== undefined
+        ? { targetAgentId: input.targetAgentId }
+        : {}),
+      ...(input.failureKind !== undefined
+        ? { failureKind: input.failureKind }
+        : {}),
+      ...(input.handoffSummary !== undefined
+        ? { handoffSummary: input.handoffSummary }
+        : {}),
+      ...(input.nextAction !== undefined
+        ? { nextAction: input.nextAction }
+        : {}),
+      ...(input.changedFiles !== undefined
+        ? { changedFiles: input.changedFiles }
+        : {})
+    };
+    return this.store.writeCurrentState(
+      projectRoot,
+      {
+        ...current,
+        conversationMemory: applyAutomaticConversationMemory(
+          current,
+          normalizedInput
+        )
+      },
+      current.revision
+    );
   }
 
   async listCheckpoints(projectRoot: string) {

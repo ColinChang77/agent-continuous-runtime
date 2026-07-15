@@ -445,6 +445,57 @@ export function createAcrMcpServer(options: AcrMcpServerOptions) {
   );
 
   server.registerTool(
+    "record_memory",
+    {
+      description:
+        "Persist structured user-intent memory for future handoffs and resume briefs.",
+      inputSchema: {
+        projectRoot: z.string(),
+        expectedRevision: z.number().int().nonnegative(),
+        userIntent: z.string().optional(),
+        userConstraints: z.array(z.string()).optional(),
+        userPreferences: z.array(z.string()).optional(),
+        rejectedApproaches: z.array(z.string()).optional(),
+        openQuestions: z.array(z.string()).optional(),
+        importantContext: z.array(z.string()).optional()
+      }
+    },
+    async (args) =>
+      withTool("record_memory", args.projectRoot, async (resolvedRoot) => {
+        const next = await projectService.recordConversationMemory(
+          resolvedRoot,
+          args.expectedRevision,
+          {
+            ...(args.userIntent !== undefined
+              ? { userIntent: args.userIntent }
+              : {}),
+            ...(args.userConstraints !== undefined
+              ? { userConstraints: args.userConstraints }
+              : {}),
+            ...(args.userPreferences !== undefined
+              ? { userPreferences: args.userPreferences }
+              : {}),
+            ...(args.rejectedApproaches !== undefined
+              ? { rejectedApproaches: args.rejectedApproaches }
+              : {}),
+            ...(args.openQuestions !== undefined
+              ? { openQuestions: args.openQuestions }
+              : {}),
+            ...(args.importantContext !== undefined
+              ? { importantContext: args.importantContext }
+              : {})
+          }
+        );
+        return {
+          stateRevision: next.revision,
+          data: {
+            conversationMemory: next.conversationMemory
+          }
+        };
+      })
+  );
+
+  server.registerTool(
     "complete_task",
     {
       description: "Mark the active task completed with verification evidence.",
@@ -571,6 +622,14 @@ export function createAcrMcpServer(options: AcrMcpServerOptions) {
     },
     async ({ projectRoot, summary, nextAction }) =>
       withTool("prepare_handoff", projectRoot, async (resolvedRoot) => {
+        const memoryState = await projectService.autoRecordHandoffMemory(
+          resolvedRoot,
+          {
+            failureKind: "switch",
+            handoffSummary: summary,
+            nextAction
+          }
+        );
         const [resume, checkpoint] = await Promise.all([
           projectService.resumeProject(resolvedRoot, true),
           projectService.createCheckpoint(
@@ -582,7 +641,7 @@ export function createAcrMcpServer(options: AcrMcpServerOptions) {
           )
         ]);
         return {
-          stateRevision: checkpoint.state.revision,
+          stateRevision: Math.max(checkpoint.state.revision, memoryState.revision),
           warnings: resume.brief.warnings,
           data: {
             checkpoint: checkpoint.checkpoint,
@@ -611,7 +670,7 @@ export function createAcrMcpServer(options: AcrMcpServerOptions) {
     [
       "prepare-handoff",
       "Prepare a handoff to another agent.",
-      "Create a fresh checkpoint, highlight unfinished work, and state the next exact action."
+      "Create a fresh checkpoint, automatically persist high-signal handoff memory, and state the next exact action."
     ],
     [
       "repair-continuity-state",

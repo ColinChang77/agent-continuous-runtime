@@ -86,6 +86,14 @@ function defaultCurrentState(projectRoot: string): CurrentState {
     knownIssues: [],
     blockers: [],
     decisions: [],
+    conversationMemory: {
+      userIntent: "",
+      userConstraints: [],
+      userPreferences: [],
+      rejectedApproaches: [],
+      openQuestions: [],
+      importantContext: []
+    },
     lastSuccessfulAction: "Initialized continuity state.",
     lastFailedAction: null,
     recovery: {

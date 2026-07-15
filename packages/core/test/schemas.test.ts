@@ -53,6 +53,14 @@ describe("core schemas", () => {
       knownIssues: [],
       blockers: [],
       decisions: [],
+      conversationMemory: {
+        userIntent: "Ship the MVP without losing user requirements across handoff.",
+        userConstraints: ["Do not use destructive git commands"],
+        userPreferences: ["Prefer compact summaries over full transcripts"],
+        rejectedApproaches: ["Do not depend on hidden provider chat history"],
+        openQuestions: ["Should full transcripts ever be optional?"],
+        importantContext: ["The product currently stores work state, not chat history."]
+      },
       lastSuccessfulAction: null,
       lastFailedAction: null,
       recovery: {

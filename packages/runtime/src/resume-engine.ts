@@ -16,6 +16,10 @@ function unique(values: string[]): string[] {
   return [...new Set(values)];
 }
 
+function nonEmpty(values: string[]): string[] {
+  return values.map((value) => value.trim()).filter(Boolean);
+}
+
 export class DefaultResumeEngine implements ResumeEngine {
   constructor(
     private readonly store: ContinuityStore,
@@ -80,11 +84,37 @@ export class DefaultResumeEngine implements ResumeEngine {
     const nextAction =
       state.recovery.resumeFrom ||
       `Inspect changed files: ${reconcileResult.changedFiles.join(", ") || "none"}.`;
+    const memory = {
+      userIntent: state.conversationMemory.userIntent.trim(),
+      userConstraints: nonEmpty(state.conversationMemory.userConstraints),
+      userPreferences: nonEmpty(state.conversationMemory.userPreferences),
+      rejectedApproaches: nonEmpty(state.conversationMemory.rejectedApproaches),
+      openQuestions: nonEmpty(state.conversationMemory.openQuestions),
+      importantContext: nonEmpty(state.conversationMemory.importantContext)
+    };
     const summaryLines = [
       "# ACR Resume Brief",
       "",
       "## Objective",
       state.objective.summary,
+      "",
+      "## Conversation Memory",
+      `- User intent: ${memory.userIntent || "Not recorded."}`,
+      ...(memory.userConstraints.length > 0
+        ? memory.userConstraints.map((item) => `- Constraint: ${item}`)
+        : ["- Constraints: none recorded."]),
+      ...(memory.userPreferences.length > 0
+        ? memory.userPreferences.map((item) => `- Preference: ${item}`)
+        : ["- Preferences: none recorded."]),
+      ...(memory.rejectedApproaches.length > 0
+        ? memory.rejectedApproaches.map((item) => `- Rejected: ${item}`)
+        : []),
+      ...(memory.openQuestions.length > 0
+        ? memory.openQuestions.map((item) => `- Open question: ${item}`)
+        : []),
+      ...(memory.importantContext.length > 0
+        ? memory.importantContext.map((item) => `- Context: ${item}`)
+        : []),
       "",
       "## Acceptance criteria",
       ...state.objective.acceptanceCriteria.map(
@@ -120,7 +150,8 @@ export class DefaultResumeEngine implements ResumeEngine {
       nextAction,
       changedFiles: reconcileResult.changedFiles,
       warnings: reconcileResult.warnings,
-      repository: snapshot
+      repository: snapshot,
+      conversationMemory: memory
     };
   }
 }

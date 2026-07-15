@@ -1,7 +1,12 @@
 import { Buffer } from "node:buffer";
 import { spawn, type ChildProcess } from "node:child_process";
 
-import pty from "node-pty";
+// node-pty is a native module. Import only its TYPES statically (fully erased at
+// compile time, so no `require` is emitted) and load the implementation lazily
+// inside run(). This lets ACR ship as a single executable or run on Node
+// versions without a prebuilt binding: if the load fails, the error propagates
+// to StrategyProcessRunner, which falls back to attached mode.
+import type { IPty } from "node-pty";
 
 import type { LaunchSpec, TransportMode } from "@acr/core";
 
@@ -15,12 +20,15 @@ export interface TransportStrategy {
 
 export class PtyTransportStrategy implements TransportStrategy {
   readonly mode = "pty" as const;
-  private child: pty.IPty | null = null;
+  private child: IPty | null = null;
 
   async run(spec: LaunchSpec, hooks?: ProcessRunHooks): Promise<ProcessResult> {
+    // Load the native binding on demand. A missing/incompatible binary throws
+    // here and StrategyProcessRunner falls back to the next transport.
+    const pty = (await import("node-pty")).default;
     return new Promise<ProcessResult>((resolve, reject) => {
       const output: string[] = [];
-      let child: pty.IPty;
+      let child: IPty;
       try {
         child = pty.spawn(spec.command, spec.args, {
           cwd: spec.cwd,

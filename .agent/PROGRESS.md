@@ -1,5 +1,43 @@
 # Progress
 
+- 2026-07-15: Automatic handoff-memory enrichment is now live. Runtime
+  supervisor writes structured conversation-memory context just before creating
+  switch/failover checkpoints, and `prepare_handoff` does the same for explicit
+  MCP handoffs. This means the next tool gets updated intent/context without a
+  separate manual `record_memory` step. Verification:
+  `npx vitest run packages/runtime/test/runtime.test.ts packages/mcp-server/test/server.test.ts`
+  passes. `npm run typecheck` still fails only in existing
+  `packages/cli/test/cli.test.ts` TS2532 lines 180/181/185/189/193.
+
+- 2026-07-15: Added a structured conversation-memory layer for cross-tool
+  handoff. `CurrentState` now stores `conversationMemory` with user intent,
+  constraints, preferences, rejected approaches, open questions, and important
+  context. Resume briefs now render a `Conversation Memory` section, so the
+  next tool receives the user's why-notes as part of the handoff prompt. Added
+  MCP tool `record_memory` for explicit writes. Verification:
+  `npx vitest run packages/core/test/schemas.test.ts packages/runtime/test/runtime.test.ts packages/mcp-server/test/server.test.ts packages/storage-local/test/local-store.test.ts`
+  passes. Repo-wide `npm run typecheck` still fails only in existing
+  `packages/cli/test/cli.test.ts` TS2532 lines 180/181/185/189/193.
+
+- 2026-07-15: Prepared a sellable delivery path. Generated
+  `agent-continuity-runtime-1.0.0.tgz` via
+  `npm --cache ./.npm-cache --logs-dir ./.npm-logs pack`, size 265 kB, SHA-256
+  `b5ce351398ff3963db39e6985aebfbaf3159cd383efbdfd102fb163cb521af13`.
+  Added `COMMERCIAL_DELIVERY.md` documenting what to send customers and how they
+  install it, and linked that guide from `README.md`. Important caveat recorded:
+  the project still declares Apache-2.0, so redistribution restrictions have
+  not been tightened for proprietary resale.
+
+- 2026-07-15: Replaced the placeholder bootstrap objective with the actual
+  active runtime task. Repository truth shows one substantive code edit in
+  `packages/runtime/src/transport-strategy.ts`: `node-pty` is now type-imported
+  statically and implementation-loaded lazily inside `run()`, allowing PTY
+  startup failures to propagate to runner fallback logic instead of hard-failing
+  module load. Verification: `npx vitest run packages/runtime/test/runtime.test.ts`
+  passes. Note: repo-wide `npm run typecheck` currently fails in
+  `packages/cli/test/cli.test.ts` with existing TS2532 errors unrelated to this
+  runtime file.
+
 - 2026-07-14: Added one-line installers `scripts/install.sh` (macOS/Linux) and
   `scripts/install.ps1` (Windows) that check prerequisites, clone, build, and
   register the global `acr` command. Documented in README "Quick install".
@@ -91,4 +129,3 @@
   limitation documented: the menu cannot auto-pop mid-session in attached mode
   (ACR can't see agent output or inject while the agent owns the terminal) —
   true auto-pop-on-limit needs a working PTY (Node 22). Build/lint/tests pass.
-

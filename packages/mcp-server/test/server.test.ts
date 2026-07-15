@@ -265,6 +265,29 @@ describe("ACR MCP server", () => {
     };
     expect(decisionPayload.ok).toBe(true);
 
+    const memoryResult = await client.callTool({
+      name: "record_memory",
+      arguments: {
+        projectRoot,
+        expectedRevision: decisionPayload.stateRevision,
+        userIntent: "Preserve user intent across handoff.",
+        userConstraints: ["Do not store full transcripts by default."],
+        userPreferences: ["Prefer structured summaries."],
+        rejectedApproaches: ["Do not rely on invisible chat history."],
+        openQuestions: ["Should transcript capture be opt-in?"],
+        importantContext: ["Existing handoff focuses on task state."]
+      }
+    });
+    const memoryPayload = JSON.parse(getFirstText(memoryResult)) as {
+      ok: boolean;
+      stateRevision: number;
+      data: { conversationMemory: { userIntent: string } };
+    };
+    expect(memoryPayload.ok).toBe(true);
+    expect(memoryPayload.data.conversationMemory.userIntent).toContain(
+      "Preserve user intent"
+    );
+
     const checkpointResult = await client.callTool({
       name: "checkpoint",
       arguments: {
@@ -288,10 +311,11 @@ describe("ACR MCP server", () => {
     });
     const resumePayload = JSON.parse(getFirstText(resumeResult)) as {
       ok: boolean;
-      data: { brief: { nextAction: string } };
+      data: { brief: { nextAction: string; summary: string } };
     };
     expect(resumePayload.ok).toBe(true);
     expect(resumePayload.data.brief.nextAction.length).toBeGreaterThan(0);
+    expect(resumePayload.data.brief.summary).toContain("## Conversation Memory");
 
     const validateResult = await client.callTool({
       name: "validate_state",
@@ -333,6 +357,9 @@ describe("ACR MCP server", () => {
     expect(handoffPayload.ok).toBe(true);
     expect(handoffPayload.data.checkpoint.checkpointId).toContain("handoff");
     expect(handoffPayload.data.resumeBrief.summary.length).toBeGreaterThan(0);
+    expect(handoffPayload.data.resumeBrief.summary).toContain(
+      "Latest handoff summary: Ready to hand off"
+    );
 
     await Promise.all([client.close(), server.close()]);
   });

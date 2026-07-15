@@ -19,6 +19,15 @@ export const taskStatusSchema = z.enum([
 
 export const confidenceSchema = z.enum(["low", "medium", "high"]);
 
+export const conversationMemorySchema = z.object({
+  userIntent: z.string(),
+  userConstraints: z.array(z.string()),
+  userPreferences: z.array(z.string()),
+  rejectedApproaches: z.array(z.string()),
+  openQuestions: z.array(z.string()),
+  importantContext: z.array(z.string())
+});
+
 export const currentStateSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   revision: z.number().int().nonnegative(),
@@ -54,6 +63,7 @@ export const currentStateSchema = z.object({
   knownIssues: z.array(z.string()),
   blockers: z.array(z.string()),
   decisions: z.array(z.string()),
+  conversationMemory: conversationMemorySchema,
   lastSuccessfulAction: z.string().nullable(),
   lastFailedAction: z.string().nullable(),
   recovery: z.object({

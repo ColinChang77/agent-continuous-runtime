@@ -10,6 +10,7 @@ import { createFakeAgentAdapter } from "@acr/adapter-fake";
 import { createLocalStore } from "@acr/storage-local";
 
 import {
+  applyAutomaticConversationMemory,
   createProcessRunner,
   acquireRuntimeLock,
   createRepositoryInspector,
@@ -88,6 +89,38 @@ describe("resume engine", () => {
     expect(brief.nextAction.length).toBeGreaterThan(0);
     expect(brief.changedFiles).toContain("src/feature.ts");
     expect(["partial_edit", "benign"]).toContain(brief.drift);
+  });
+
+  it("includes structured conversation memory in the resume brief", async () => {
+    const projectRoot = await createTempProject();
+    const store = createLocalStore();
+
+    await store.initialize(projectRoot);
+    const current = await store.readCurrentState(projectRoot);
+    await store.writeCurrentState(
+      projectRoot,
+      {
+        ...current,
+        conversationMemory: {
+          userIntent: "Keep user intent across tool switches.",
+          userConstraints: ["Do not store full raw transcripts by default."],
+          userPreferences: ["Prefer concise structured memory."],
+          rejectedApproaches: ["Do not rely on implicit provider-side memory."],
+          openQuestions: ["Should transcript capture be opt-in?"],
+          importantContext: ["Current handoff only carries task summary."]
+        }
+      },
+      current.revision
+    );
+
+    const engine = createResumeEngine(store);
+    const brief = await engine.generate(projectRoot);
+
+    expect(brief.summary).toContain("## Conversation Memory");
+    expect(brief.summary).toContain("Keep user intent across tool switches.");
+    expect(brief.conversationMemory.userPreferences).toContain(
+      "Prefer concise structured memory."
+    );
   });
 });
 
@@ -217,6 +250,39 @@ describe("runtime supervisor", () => {
     expect(result.classification.kind).toBe("unknown");
     expect(result.fallbackAgentId).toBeNull();
     expect(result.checkpoints).toHaveLength(1);
+  });
+
+  it("automatically enriches conversation memory before checkpointing handoff", async () => {
+    const projectRoot = await createTempProject();
+    const supervisor = createRuntimeSupervisor();
+    const fakeAdapter = createFakeAgentAdapter();
+
+    const result = await supervisor.startSession({
+      projectRoot,
+      agent: fakeAdapter,
+      fallbacks: [fakeAdapter],
+      scenario: "usage_limit",
+      fallbackScenarios: ["success"]
+    });
+
+    expect(result.classification.kind).toBe("usage_limit");
+    const store = createLocalStore();
+    const current = await store.readCurrentState(projectRoot);
+
+    expect(current.conversationMemory.userIntent.length).toBeGreaterThan(0);
+    expect(current.conversationMemory.userConstraints).toContain(
+      "Inspect repository truth before trusting continuity state."
+    );
+    expect(
+      current.conversationMemory.importantContext.some((item) =>
+        item.includes("Latest handoff summary:")
+      )
+    ).toBe(true);
+    expect(
+      current.conversationMemory.openQuestions.some((item) =>
+        item.includes("Next requested action:")
+      )
+    ).toBe(true);
   });
 
   it("treats interrupted long-running sessions as user interrupts", async () => {
