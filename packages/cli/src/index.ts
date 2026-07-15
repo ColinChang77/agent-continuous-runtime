@@ -668,7 +668,16 @@ export async function confirmUnknownTermination(
 
 async function detectPtyAvailability() {
   try {
-    await import("node-pty");
+    const pty = (await import("node-pty")).default;
+    // Importing is not enough — the native binding can load yet fail to spawn
+    // (e.g. node-pty vs. a very new Node). Probe an actual spawn to be honest.
+    const probe = pty.spawn(process.execPath, ["-e", "0"], {
+      name: "xterm-color",
+      cols: 80,
+      rows: 24,
+      env: process.env as Record<string, string>
+    });
+    probe.kill();
     return true;
   } catch {
     return false;

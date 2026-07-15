@@ -32,4 +32,15 @@
   `acr start .`. Installers run the wizard at the end (ACR_NO_SETUP=1 to skip).
   Added config/wizard tests. Verified flag-free start uses saved primary; build,
   typecheck, lint, full tests pass.
+- 2026-07-14: Interactive-session fixes after real Claude/Codex trial exposed
+  two gaps. (1) PtyTransportStrategy now forwards process.stdin -> child pty
+  (raw mode + SIGWINCH resize + cleanup), so `acr start` can host a hands-on
+  agent TUI when a PTY is available (previously it only streamed output, never
+  accepted keystrokes). (2) `detectPtyAvailability` now does a real spawn probe
+  instead of just importing node-pty, so `doctor` honestly reports pty
+  availability; runner prints a clear one-line warning when it falls back from
+  PTY. Root cause on this machine: node-pty 1.1.0 fails to spawn on Node v25
+  ("posix_spawnp failed") even after `npm rebuild` — interactive PTY needs
+  Node 22 LTS (matches package.json engines >=22). Build/typecheck/lint/tests
+  pass; doctor now shows pty available: false on Node 25.
 

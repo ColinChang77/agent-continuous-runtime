@@ -47,6 +47,14 @@ export class StrategyProcessRunner implements ProcessRunner {
         return result;
       } catch (error) {
         lastError = error;
+        if (strategy.mode === "pty") {
+          process.stderr.write(
+            "[acr] PTY transport unavailable (node-pty could not start); " +
+              "falling back to non-interactive mode. Interactive agent TUIs " +
+              "(Claude/Codex) need a working PTY — use Node 22 LTS, where " +
+              "node-pty is supported.\n"
+          );
+        }
       }
     }
     throw lastError instanceof Error

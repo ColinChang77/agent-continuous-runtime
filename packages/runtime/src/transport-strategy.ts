@@ -20,8 +20,9 @@ export class PtyTransportStrategy implements TransportStrategy {
   async run(spec: LaunchSpec, hooks?: ProcessRunHooks): Promise<ProcessResult> {
     return new Promise<ProcessResult>((resolve, reject) => {
       const output: string[] = [];
+      let child: pty.IPty;
       try {
-        this.child = pty.spawn(spec.command, spec.args, {
+        child = pty.spawn(spec.command, spec.args, {
           cwd: spec.cwd,
           env: spec.env,
           name: "xterm-color",
@@ -32,17 +33,61 @@ export class PtyTransportStrategy implements TransportStrategy {
         reject(error);
         return;
       }
+      this.child = child;
 
       hooks?.onTransportSelected?.(this.mode);
-      hooks?.onStarted?.(this.child.pid ?? null, this.mode);
+      hooks?.onStarted?.(child.pid ?? null, this.mode);
 
-      this.child.onData((chunk) => {
+      child.onData((chunk) => {
         output.push(chunk);
         hooks?.onOutput?.("stdout", chunk);
         process.stdout.write(chunk);
       });
 
-      this.child.onExit(({ exitCode, signal }) => {
+      // Interactive passthrough: forward the user's keystrokes to the agent and
+      // keep the agent's view sized to the terminal. Only engage when stdin is a
+      // TTY so non-interactive/test runs are unaffected.
+      const stdin = process.stdin;
+      const interactive = Boolean(stdin.isTTY);
+      const onInput = (data: Buffer) => child.write(data.toString("utf8"));
+      const onResize = () => {
+        try {
+          child.resize(process.stdout.columns || 80, process.stdout.rows || 24);
+        } catch {
+          // The child may have already exited; ignore late resize events.
+        }
+      };
+
+      let cleanedUp = false;
+      const cleanup = () => {
+        if (cleanedUp) return;
+        cleanedUp = true;
+        stdin.removeListener("data", onInput);
+        process.stdout.removeListener("resize", onResize);
+        if (interactive && stdin.isTTY) {
+          try {
+            stdin.setRawMode(false);
+          } catch {
+            // Restoring cooked mode is best-effort.
+          }
+        }
+        // Release stdin so the parent CLI regains control after the session.
+        stdin.pause();
+      };
+
+      if (interactive) {
+        try {
+          stdin.setRawMode(true);
+        } catch {
+          // Raw mode may be unavailable in some terminals; typing still works.
+        }
+        stdin.resume();
+        stdin.on("data", onInput);
+        process.stdout.on("resize", onResize);
+      }
+
+      child.onExit(({ exitCode, signal }) => {
+        cleanup();
         this.child = null;
         hooks?.onExit?.(exitCode, signal === 0 ? null : String(signal));
         resolve({
