@@ -53,4 +53,12 @@
   wants Node 22 LTS. Installers warn on Node >24; README has a "Terminal modes"
   table. Added InheritTransportStrategy test; selection logic verified for both
   interactive and non-interactive. Build/typecheck/lint/tests pass.
+- 2026-07-14: CRITICAL FIX — the CLI entry guard compared
+  `process.argv[1] === fileURLToPath(import.meta.url)`, which never matched when
+  `acr` was invoked through a symlink (exactly how `npm link` / global install
+  expose it). Result: every installed `acr <cmd>` silently did nothing (exit 0,
+  no output). Replaced with `isMainModule()` that realpath-resolves both sides.
+  Added a regression test that execs the built bundle via a temp symlink and
+  asserts help output. Verified `acr --help` / `acr doctor` now work via the
+  linked bin. Build/typecheck/lint/full tests pass.
 

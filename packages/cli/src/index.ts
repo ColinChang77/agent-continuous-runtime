@@ -3,7 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
-import { createReadStream, existsSync, mkdirSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, realpathSync } from "node:fs";
 import { access, readFile, readdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -1037,7 +1037,25 @@ export async function runCli(argv = process.argv): Promise<void> {
   throw new Error(`Unknown command: ${command}`);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+/**
+ * True when this file is the program's entry point. Resolves symlinks on both
+ * sides so it still matches when invoked through a linked bin (`npm link` /
+ * global install create a symlinked `acr`), where the raw argv path and the
+ * module URL differ.
+ */
+function isMainModule(): boolean {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  try {
+    return (
+      realpathSync(fileURLToPath(import.meta.url)) === realpathSync(invoked)
+    );
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   void runCli().catch((error) => {
     process.stderr.write(
       `${error instanceof Error ? error.message : String(error)}\n`

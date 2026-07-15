@@ -1,7 +1,12 @@
-import { PassThrough } from "node:stream";
-import { access, mkdtemp } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
+import { mkdtemp, rm, symlink } from "node:fs/promises";
+import { access } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { PassThrough } from "node:stream";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -10,6 +15,12 @@ import {
   runCli,
   shortcutModeFromArgv
 } from "../src/index.js";
+
+const execFileAsync = promisify(execFile);
+const distEntry = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../dist/acr.js"
+);
 
 async function createTempProject(): Promise<string> {
   return mkdtemp(path.join(os.tmpdir(), "acr-cli-test-"));
@@ -67,6 +78,25 @@ describe("CLI", () => {
     expect(output).not.toContain("unsafe-plugin");
 
     vi.unstubAllEnvs();
+  });
+
+  it("runs when invoked through a symlinked bin (as npm link installs it)", async () => {
+    // The built bundle guards its entry point; a symlinked `acr` must still run.
+    // Requires a prior `npm run build`; skip if the bundle is absent.
+    if (!existsSync(distEntry)) return;
+
+    const dir = await mkdtemp(path.join(os.tmpdir(), "acr-bin-"));
+    const linked = path.join(dir, "acr");
+    try {
+      await symlink(distEntry, linked);
+      const { stdout } = await execFileAsync(process.execPath, [
+        linked,
+        "--help"
+      ]);
+      expect(stdout).toContain("Agent Continuity Runtime");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it("requires explicit initialization before start", async () => {
