@@ -17,6 +17,10 @@ const CODEX_ENV_KEYS = [
   "PATH",
   "HOME",
   "CODEX_HOME",
+  // USER (and LOGNAME) are required for macOS Keychain access, where CLI logins
+  // are stored — without them the agent can report as not authenticated.
+  "USER",
+  "LOGNAME",
   "SHELL",
   "TERM",
   "COLORTERM",

@@ -16,6 +16,10 @@ import {
 const CLAUDE_ENV_KEYS = [
   "PATH",
   "HOME",
+  // USER (and LOGNAME) are required for macOS Keychain access, where Claude
+  // Code stores its login — without them the agent reports "Not logged in".
+  "USER",
+  "LOGNAME",
   "SHELL",
   "TERM",
   "COLORTERM",

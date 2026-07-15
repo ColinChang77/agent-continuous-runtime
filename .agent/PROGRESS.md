@@ -61,4 +61,11 @@
   Added a regression test that execs the built bundle via a temp symlink and
   asserts help output. Verified `acr --help` / `acr doctor` now work via the
   linked bin. Build/typecheck/lint/full tests pass.
+- 2026-07-14: Fixed "Not logged in" when ACR launches real claude/codex. The env
+  allow-lists omitted USER, which macOS needs to reach the Keychain where the
+  CLI login lives; the agent therefore launched unauthenticated even though the
+  user was logged in. Reproduced (env -i HOME PATH ... claude -p → "Not logged
+  in"; adding USER → "OK"; LOGNAME alone insufficient). Added USER + LOGNAME to
+  CLAUDE_ENV_KEYS and CODEX_ENV_KEYS. Verified launch env now authenticates.
+  Build/typecheck/lint/tests pass.
 
