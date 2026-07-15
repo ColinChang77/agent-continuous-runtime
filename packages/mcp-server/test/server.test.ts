@@ -315,7 +315,9 @@ describe("ACR MCP server", () => {
     };
     expect(resumePayload.ok).toBe(true);
     expect(resumePayload.data.brief.nextAction.length).toBeGreaterThan(0);
-    expect(resumePayload.data.brief.summary).toContain("## Conversation Memory");
+    expect(resumePayload.data.brief.summary).toContain(
+      "## Conversation Memory"
+    );
 
     const validateResult = await client.callTool({
       name: "validate_state",

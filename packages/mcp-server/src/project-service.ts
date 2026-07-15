@@ -350,7 +350,9 @@ export class ProjectService {
     input: {
       agentId?: string;
       targetAgentId?: string;
-      failureKind?: Parameters<typeof applyAutomaticConversationMemory>[1]["failureKind"];
+      failureKind?: Parameters<
+        typeof applyAutomaticConversationMemory
+      >[1]["failureKind"];
       handoffSummary?: string;
       nextAction?: string;
       changedFiles?: string[];

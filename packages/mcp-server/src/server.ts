@@ -641,7 +641,10 @@ export function createAcrMcpServer(options: AcrMcpServerOptions) {
           )
         ]);
         return {
-          stateRevision: Math.max(checkpoint.state.revision, memoryState.revision),
+          stateRevision: Math.max(
+            checkpoint.state.revision,
+            memoryState.revision
+          ),
           warnings: resume.brief.warnings,
           data: {
             checkpoint: checkpoint.checkpoint,

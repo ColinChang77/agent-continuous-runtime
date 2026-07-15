@@ -177,20 +177,20 @@ describe("CLI", () => {
 
   it("offers switch/restart/quit in the post-session menu", () => {
     const fromClaude = postSessionChoices("claude-code");
-    expect(fromClaude[0].action).toEqual({ kind: "switch", agentId: "codex" });
-    expect(fromClaude[1].action).toEqual({
+    expect(fromClaude[0]!.action).toEqual({ kind: "switch", agentId: "codex" });
+    expect(fromClaude[1]!.action).toEqual({
       kind: "switch",
       agentId: "claude-code-alt"
     });
-    expect(fromClaude[2].action).toEqual({
+    expect(fromClaude[2]!.action).toEqual({
       kind: "restart",
       agentId: "claude-code"
     });
-    expect(fromClaude[3].action).toEqual({ kind: "quit" });
+    expect(fromClaude[3]!.action).toEqual({ kind: "quit" });
 
     // From an alt account, option 2 switches back to the main account.
     const fromAlt = postSessionChoices("claude-code-alt");
-    expect(fromAlt[1].action).toEqual({
+    expect(fromAlt[1]!.action).toEqual({
       kind: "switch",
       agentId: "claude-code"
     });

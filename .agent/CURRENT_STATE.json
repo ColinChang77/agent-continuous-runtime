@@ -33,8 +33,7 @@
   "completedSteps": [
     "Inspected the live working tree and confirmed the substantive code change is in packages/runtime/src/transport-strategy.ts.",
     "Ran targeted runtime verification and confirmed packages/runtime/test/runtime.test.ts passes.",
-    "Created an installable customer artifact with npm pack and wrote a dedicated commercial delivery guide."
-    ,
+    "Created an installable customer artifact with npm pack and wrote a dedicated commercial delivery guide.",
     "Extended the continuity schema, resume engine, and MCP server so handoffs can carry structured conversation memory.",
     "Connected automatic pre-handoff memory enrichment to runtime failover/switch checkpoints and the prepare_handoff tool."
   ],
@@ -70,13 +69,8 @@
     "deleted": []
   },
   "artifacts": {
-    "created": [
-      "COMMERCIAL_DELIVERY.md",
-      "agent-continuity-runtime-1.0.0.tgz"
-    ],
-    "generated": [
-      ".npm-logs/"
-    ]
+    "created": ["COMMERCIAL_DELIVERY.md", "agent-continuity-runtime-1.0.0.tgz"],
+    "generated": [".npm-logs/"]
   },
   "customerDelivery": {
     "packageFile": "agent-continuity-runtime-1.0.0.tgz",
@@ -118,9 +112,7 @@
       "npx vitest run packages/core/test/schemas.test.ts packages/runtime/test/runtime.test.ts packages/mcp-server/test/server.test.ts packages/storage-local/test/local-store.test.ts",
       "npx vitest run packages/runtime/test/runtime.test.ts packages/mcp-server/test/server.test.ts"
     ],
-    "failed": [
-      "npm run typecheck"
-    ],
+    "failed": ["npm run typecheck"],
     "notRunReason": null
   },
   "knownIssues": [

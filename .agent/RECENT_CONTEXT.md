@@ -1,5 +1,13 @@
 # Recent Context
 
+- 2026-07-15: CI on `main` had been red on every recent commit (not caused by the
+  uninstall change). Three independent pre-existing failures were fixed: (1)
+  `format:check` — 9 tracked files not prettier-formatted, fixed with
+  `npm run format`; (2) `lint` — unused `applyAutomaticConversationMemory` import
+  in `packages/runtime/test/runtime.test.ts`, removed; (3) `typecheck` — five
+  TS2532 in `packages/cli/test/cli.test.ts` (noUncheckedIndexedAccess), fixed with
+  non-null assertions on `postSessionChoices` indexed access. Full `npm run ci`
+  now passes locally (exit 0).
 - 2026-07-15: Security review of the installer confirmed ACR's own source makes
   no outbound network calls (no telemetry/analytics, no http/https/net imports),
   keeps state in local files, and reads git read-only. Network activity is

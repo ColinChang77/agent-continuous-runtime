@@ -10,7 +10,6 @@ import { createFakeAgentAdapter } from "@acr/adapter-fake";
 import { createLocalStore } from "@acr/storage-local";
 
 import {
-  applyAutomaticConversationMemory,
   createProcessRunner,
   acquireRuntimeLock,
   createRepositoryInspector,

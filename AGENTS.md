@@ -1,4 +1,5 @@
 <!-- ACR:BEGIN -->
+
 Inspect `.agent/` continuity state before working.
 Inspect the actual working tree before trusting stored state.
 Call or emulate resume before making edits.
