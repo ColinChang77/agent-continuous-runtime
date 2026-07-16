@@ -45,7 +45,11 @@ describe("CLI", () => {
     await runCli(["node", "acr", "status", projectRoot]);
 
     const output = stdout.mock.calls.map((call) => String(call[0])).join("");
-    expect(output).toContain(projectRoot);
+    // The path appears inside JSON output, where Windows backslashes are
+    // escaped (C:\\Users\\...). Match the JSON-encoded form (quotes stripped)
+    // so the assertion holds on both POSIX and Windows.
+    const encodedRoot = JSON.stringify(projectRoot).slice(1, -1);
+    expect(output).toContain(encodedRoot);
     expect(output).toContain("stateRevision");
   });
 
