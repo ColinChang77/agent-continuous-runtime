@@ -3,7 +3,28 @@
   "version": "1.0.0",
   "description": "Local-first continuity runtime for AI coding agents.",
   "license": "Apache-2.0",
+  "author": "ColinChang77",
   "type": "module",
+  "keywords": [
+    "ai",
+    "agent",
+    "coding-agent",
+    "continuity",
+    "handoff",
+    "failover",
+    "mcp",
+    "claude-code",
+    "codex",
+    "local-first"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ColinChang77/agent-continuous-runtime.git"
+  },
+  "homepage": "https://github.com/ColinChang77/agent-continuous-runtime#readme",
+  "bugs": {
+    "url": "https://github.com/ColinChang77/agent-continuous-runtime/issues"
+  },
   "bin": {
     "acr": "./dist/acr.js",
     "acr-claude": "./dist/acr.js",
