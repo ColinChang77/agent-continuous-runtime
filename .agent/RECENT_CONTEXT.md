@@ -1,5 +1,17 @@
 # Recent Context
 
+- 2026-07-16: Open-sourced the project. The GitHub repo
+  (ColinChang77/agent-continuous-runtime) was PRIVATE and its LICENSE was a
+  73-byte stub (GitHub detected "Other"). Ran a secret scan over the working tree
+  and full git history (sk-/ghp_/AKIA/xox/PRIVATE KEY) — clean, no secrets
+  committed. Replaced LICENSE with the full Apache-2.0 text (Copyright 2026
+  ColinChang77), added npm/repository metadata to package.json, and added
+  CONTRIBUTING.md + root SECURITY.md. Then flipped the repo to PUBLIC via
+  `gh repo edit --visibility public`; GitHub now detects "Apache License 2.0".
+  npm publish was intentionally skipped (user dropped it). Note still open:
+  `.mcp.json` is tracked and contains an absolute local path exposing the
+  username; and the working tree still has uncommitted pre-existing deletions of
+  COMMERCIAL_DELIVERY.md and agent-continuity-runtime-1.0.0.tgz.
 - 2026-07-15: CI on `main` (ci.yml, matrix ubuntu/macos/windows) had been red on
   every recent commit — pre-existing, not caused by the uninstall change — and is
   now fully green (run 29467099210, all three OSes pass). Seven layered fixes:
