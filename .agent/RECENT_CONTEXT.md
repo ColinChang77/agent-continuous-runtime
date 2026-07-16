@@ -1,13 +1,27 @@
 # Recent Context
 
-- 2026-07-15: CI on `main` had been red on every recent commit (not caused by the
-  uninstall change). Three independent pre-existing failures were fixed: (1)
-  `format:check` — 9 tracked files not prettier-formatted, fixed with
-  `npm run format`; (2) `lint` — unused `applyAutomaticConversationMemory` import
-  in `packages/runtime/test/runtime.test.ts`, removed; (3) `typecheck` — five
-  TS2532 in `packages/cli/test/cli.test.ts` (noUncheckedIndexedAccess), fixed with
-  non-null assertions on `postSessionChoices` indexed access. Full `npm run ci`
-  now passes locally (exit 0).
+- 2026-07-15: CI on `main` (ci.yml, matrix ubuntu/macos/windows) had been red on
+  every recent commit — pre-existing, not caused by the uninstall change — and is
+  now fully green (run 29467099210, all three OSes pass). Seven layered fixes:
+  (1) `format:check` — 9 tracked files unformatted, fixed with `npm run format`;
+  (2) `lint` — unused `applyAutomaticConversationMemory` import removed from
+  `packages/runtime/test/runtime.test.ts`; (3) `typecheck` — five TS2532 in
+  `packages/cli/test/cli.test.ts` fixed with non-null assertions;
+  (4) Windows format:check flagged all 127 files (CRLF) — added `.gitattributes`
+  forcing `eol=lf`; (5) `PtyTransportStrategy.terminate` called
+  `child.kill("SIGINT")` which node-pty rejects on Windows ("Signals not
+  supported") — guard to `kill()` without a signal on win32;
+  (6) ROOT CAUSE of the Windows classification failures: diagnostic logging showed
+  node-pty spawns on the Windows CI Node build but the child aborts natively
+  (exit 134, C++ crash in the pty binding), masking the fake agent's real exit
+  code so termination classified as "unknown". Fix in
+  `packages/runtime/src/process-runner.ts`: prefer Stdio over PTY in
+  non-interactive/headless mode (no terminal to emulate there; avoids the native
+  node-pty dependency). Interactive TTY path still PTY-first and unchanged. Also
+  added exit-code fallbacks in `packages/adapter-fake/src/index.ts`;
+  (7) `cli.test.ts` asserted a raw path is contained in JSON output, but Windows
+  backslashes are JSON-escaped — compare the JSON-encoded path instead.
+  Commits: 91ca1fa, a7f3f4e, 7499a1b, ad12a55, ac3a69c, 9912e15, 5f0583d.
 - 2026-07-15: Security review of the installer confirmed ACR's own source makes
   no outbound network calls (no telemetry/analytics, no http/https/net imports),
   keeps state in local files, and reads git read-only. Network activity is
