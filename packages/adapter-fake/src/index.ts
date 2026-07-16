@@ -98,7 +98,11 @@ export class FakeAgentAdapter implements AgentAdapter {
       };
     }
 
-    if (output.includes("FAKE_USAGE_LIMIT")) {
+    // Primary signal is the marker the fake agent writes. Windows ConPTY can
+    // truncate a process's final output when it exits immediately after
+    // writing, so we also accept each scenario's dedicated exit code as a
+    // deterministic, capture-independent fallback (see test-fixtures/fake-agent.mjs).
+    if (output.includes("FAKE_USAGE_LIMIT") || input.exitCode === 21) {
       return {
         kind: "usage_limit",
         confidence: "high",
@@ -111,7 +115,7 @@ export class FakeAgentAdapter implements AgentAdapter {
       };
     }
 
-    if (output.includes("FAKE_AUTH_FAILURE")) {
+    if (output.includes("FAKE_AUTH_FAILURE") || input.exitCode === 23) {
       return {
         kind: "authentication_failure",
         confidence: "high",
@@ -124,7 +128,7 @@ export class FakeAgentAdapter implements AgentAdapter {
       };
     }
 
-    if (output.includes("FAKE_NETWORK_FAILURE")) {
+    if (output.includes("FAKE_NETWORK_FAILURE") || input.exitCode === 24) {
       return {
         kind: "network_failure",
         confidence: "high",
@@ -137,7 +141,7 @@ export class FakeAgentAdapter implements AgentAdapter {
       };
     }
 
-    if (output.includes("FAKE_CONTEXT_LIMIT")) {
+    if (output.includes("FAKE_CONTEXT_LIMIT") || input.exitCode === 25) {
       return {
         kind: "context_limit",
         confidence: "high",
@@ -163,7 +167,7 @@ export class FakeAgentAdapter implements AgentAdapter {
       };
     }
 
-    if (output.includes("FAKE_CRASH")) {
+    if (output.includes("FAKE_CRASH") || input.exitCode === 2) {
       return {
         kind: "process_crash",
         confidence: "high",
