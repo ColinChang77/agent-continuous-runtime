@@ -6,3 +6,6 @@ coverage/
 .acr/
 .agent/locks/
 *.tsbuildinfo
+.npm-logs/
+# Local MCP server config (contains machine-specific absolute paths)
+.mcp.json
