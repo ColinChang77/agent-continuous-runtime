@@ -34,8 +34,13 @@ export interface ProcessRunner {
  * - Interactive (a TTY on both stdin and stdout): prefer a PTY for the full
  *   experience, then fall back to fully attaching the terminal (Inherit) so the
  *   agent TUI still works even without node-pty, then Stdio as a last resort.
- * - Non-interactive (piped/headless/CI): keep the capturing strategies so ACR
- *   can read agent output and classify termination.
+ * - Non-interactive (piped/headless/CI): prefer Stdio. There is no terminal to
+ *   emulate, so a PTY adds no benefit here (its interactive passthrough/resizing
+ *   are inert when stdin is not a TTY) while carrying the native node-pty
+ *   dependency. On some platforms (e.g. Windows ConPTY on non-LTS Node builds)
+ *   node-pty spawns but the child aborts natively, which would otherwise mask the
+ *   agent's real exit code. Stdio captures stdout+stderr reliably with no native
+ *   dependency; PTY remains as a fallback.
  */
 export function defaultTransportStrategies(): TransportStrategy[] {
   const interactive = Boolean(process.stdout.isTTY && process.stdin.isTTY);
@@ -45,7 +50,7 @@ export function defaultTransportStrategies(): TransportStrategy[] {
         new InheritTransportStrategy(),
         new StdioTransportStrategy()
       ]
-    : [new PtyTransportStrategy(), new StdioTransportStrategy()];
+    : [new StdioTransportStrategy(), new PtyTransportStrategy()];
 }
 
 export class StrategyProcessRunner implements ProcessRunner {

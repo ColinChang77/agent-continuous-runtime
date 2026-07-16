@@ -80,17 +80,6 @@ export class FakeAgentAdapter implements AgentAdapter {
   ): Promise<FailureClassification> {
     const output = input.output;
 
-    // TEMP DIAGNOSTIC (remove after Windows CI triage): surface the raw
-    // termination evidence so we can see why classification differs on Windows.
-    console.error(
-      `[ACR_DIAG] classifyTermination evidence=${JSON.stringify({
-        exitCode: input.exitCode,
-        signal: input.signal,
-        outLen: output.length,
-        outSample: output.slice(0, 120)
-      })}`
-    );
-
     if (
       input.signal === "SIGINT" ||
       input.exitCode === 130 ||
