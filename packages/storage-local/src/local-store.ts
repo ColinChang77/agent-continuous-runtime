@@ -81,7 +81,8 @@ function defaultCurrentState(projectRoot: string): CurrentState {
       commands: [],
       passed: [],
       failed: [],
-      notRunReason: "No project-specific verification has run yet."
+      notRunReason: "No project-specific verification has run yet.",
+      repositoryEvidence: null
     },
     knownIssues: [],
     blockers: [],

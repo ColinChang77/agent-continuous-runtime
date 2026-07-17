@@ -1,5 +1,6 @@
 import type { AgentAdapter } from "@acr/core";
 import { createLocalStore } from "@acr/storage-local";
+import { randomUUID } from "node:crypto";
 
 import { createRuntimeEventPipeline } from "./event-pipeline.js";
 import { createFailureClassifier } from "./failure-classifier.js";
@@ -7,12 +8,13 @@ import type { DefaultFailureClassifier } from "./failure-classifier.js";
 import { createAgentHealthStore } from "./health-store.js";
 import { applyAutomaticConversationMemory } from "./conversation-memory.js";
 import {
+  createDiffDigest,
   createRepositoryInspector,
   createStatusDigest
 } from "./repository-inspector.js";
 import { createResumeEngine } from "./resume-engine.js";
 import { createProcessRunner, type ProcessRunner } from "./process-runner.js";
-import { acquireRuntimeLock } from "./runtime-lock.js";
+import { acquireRuntimeLock, RuntimeLockedError } from "./runtime-lock.js";
 import {
   appendRuntimeLog,
   clearSwitchRequest,
@@ -34,6 +36,8 @@ export interface StartSessionOptions {
   maxFailovers?: number;
   networkRetryCount?: number;
   resolveAdapterById?: (id: string) => AgentAdapter | undefined;
+  /** Allow independent shortcut sessions to run in the same project. */
+  allowConcurrent?: boolean;
 }
 
 export interface StartSessionResult {
@@ -70,15 +74,23 @@ export class RuntimeSupervisor {
         return writeRuntimeState(options.projectRoot, created);
       }
     );
+    const concurrentSessionKey = options.allowConcurrent
+      ? `runtime-${process.pid}-${randomUUID()}`
+      : null;
+    const sessionRuntimeId = concurrentSessionKey
+      ? `${runtimeState.runtimeId}-${concurrentSessionKey}`
+      : runtimeState.runtimeId;
     this.eventPipeline = createRuntimeEventPipeline({
       projectRoot: options.projectRoot,
       persist: true,
-      sessionId: runtimeState.runtimeId,
+      sessionId: sessionRuntimeId,
       runId: `run-${Date.now().toString(36)}`
     });
     const lock = await acquireRuntimeLock(
       options.projectRoot,
-      runtimeState.runtimeId
+      sessionRuntimeId,
+      "runtime-supervision",
+      concurrentSessionKey ?? "runtime"
     );
     const checkpoints: string[] = [];
     const fallbackOrder = options.fallbacks ?? [];
@@ -86,7 +98,9 @@ export class RuntimeSupervisor {
     const networkRetryCount = options.networkRetryCount ?? 1;
 
     try {
-      await clearSwitchRequest(options.projectRoot);
+      if (!options.allowConcurrent) {
+        await clearSwitchRequest(options.projectRoot);
+      }
       await patchRuntimeState(options.projectRoot, (current) => ({
         ...current,
         status: "starting",
@@ -106,7 +120,8 @@ export class RuntimeSupervisor {
         options.agent,
         options.scenario,
         networkRetryCount,
-        options.resolveAdapterById
+        options.resolveAdapterById,
+        options.allowConcurrent
       );
       checkpoints.push(primary.checkpointId);
 
@@ -130,7 +145,8 @@ export class RuntimeSupervisor {
           fallback,
           options.fallbackScenarios?.[failovers],
           networkRetryCount,
-          options.resolveAdapterById
+          options.resolveAdapterById,
+          options.allowConcurrent
         );
         checkpoints.push(fallbackRun.checkpointId);
         lastFallbackAgentId = fallback.id;
@@ -180,14 +196,16 @@ export class RuntimeSupervisor {
     adapter: AgentAdapter,
     scenario: string | undefined,
     networkRetryCount: number,
-    resolveAdapterById?: (id: string) => AgentAdapter | undefined
+    resolveAdapterById?: (id: string) => AgentAdapter | undefined,
+    allowConcurrent = false
   ) {
     let attempts = 0;
     let lastResult = await this.runSingleAgent(
       projectRoot,
       adapter,
       scenario,
-      resolveAdapterById
+      resolveAdapterById,
+      allowConcurrent
     );
 
     while (
@@ -207,7 +225,8 @@ export class RuntimeSupervisor {
         projectRoot,
         adapter,
         scenario,
-        resolveAdapterById
+        resolveAdapterById,
+        allowConcurrent
       );
     }
 
@@ -218,7 +237,8 @@ export class RuntimeSupervisor {
     projectRoot: string,
     adapter: AgentAdapter,
     scenario: string | undefined,
-    resolveAdapterById?: (id: string) => AgentAdapter | undefined
+    resolveAdapterById?: (id: string) => AgentAdapter | undefined,
+    allowConcurrent = false
   ) {
     const brief = await this.resumeEngine.generate(projectRoot);
     this.eventPipeline.emit({
@@ -243,7 +263,12 @@ export class RuntimeSupervisor {
     }));
     await appendRuntimeLog(projectRoot, `Launching ${adapter.id}.`);
 
-    const monitor = this.createSwitchMonitor(projectRoot);
+    // A project-wide switch request is ambiguous when several shortcut
+    // windows are active. Concurrent shortcut sessions use their own post-run
+    // menu, so only exclusive sessions listen for external switch requests.
+    const monitor = allowConcurrent
+      ? { stop: async () => null }
+      : this.createSwitchMonitor(projectRoot);
     const result = await this.processRunner.run(spec, {
       onTransportSelected: (mode) => {
         this.eventPipeline.emit({
@@ -304,36 +329,45 @@ export class RuntimeSupervisor {
         classification.cooldownMs ?? null
       );
     }
-    const currentState = await this.captureRepositoryEvidence(projectRoot);
     const reason = switchRequest ? "switch" : classification.kind;
     const summary = switchRequest
       ? `Manual switch requested while ${adapter.id} was active. Repository truth was checkpointed; narrative intent may lag behind repository state.`
       : `Agent ${adapter.id} exited with ${classification.kind}. Repository truth was checkpointed; narrative intent may lag behind repository state.`;
-    const stateWithMemory = await this.store.writeCurrentState(
-      projectRoot,
-      {
-        ...currentState,
-        conversationMemory: applyAutomaticConversationMemory(currentState, {
-          agentId: adapter.id,
-          ...(switchRequest?.targetAdapterId
-            ? { targetAgentId: switchRequest.targetAdapterId }
-            : {}),
-          failureKind: reason,
-          handoffSummary: summary,
-          nextAction: currentState.recovery.resumeFrom,
-          changedFiles: brief.changedFiles
-        })
-      },
-      currentState.revision
-    );
-    const checkpoint = await this.store.createCheckpoint(projectRoot, {
-      checkpointId: `${new Date().toISOString().replaceAll(":", "-")}_${adapter.id}`,
-      reason,
-      summary,
-      handoff: resumeInstruction,
-      currentState: stateWithMemory,
-      safeToResume: switchRequest ? true : classification.safeToFailover
-    });
+    // Serialize the short continuity update across concurrent windows. Without
+    // this, two agents exiting together can both read the same revision and
+    // race while writing CURRENT_STATE.json.
+    const stateLock = await this.acquireStateUpdateLock(projectRoot);
+    let checkpoint;
+    try {
+      const currentState = await this.captureRepositoryEvidence(projectRoot);
+      const stateWithMemory = await this.store.writeCurrentState(
+        projectRoot,
+        {
+          ...currentState,
+          conversationMemory: applyAutomaticConversationMemory(currentState, {
+            agentId: adapter.id,
+            ...(switchRequest?.targetAdapterId
+              ? { targetAgentId: switchRequest.targetAdapterId }
+              : {}),
+            failureKind: reason,
+            handoffSummary: summary,
+            nextAction: currentState.recovery.resumeFrom,
+            changedFiles: brief.changedFiles
+          })
+        },
+        currentState.revision
+      );
+      checkpoint = await this.store.createCheckpoint(projectRoot, {
+        checkpointId: `${new Date().toISOString().replaceAll(":", "-")}_${adapter.id}`,
+        reason,
+        summary,
+        handoff: resumeInstruction,
+        currentState: stateWithMemory,
+        safeToResume: switchRequest ? true : classification.safeToFailover
+      });
+    } finally {
+      await stateLock.release();
+    }
     this.eventPipeline.emit({
       type: "CheckpointCreated",
       agentId: adapter.id,
@@ -395,6 +429,26 @@ export class RuntimeSupervisor {
     };
   }
 
+  private async acquireStateUpdateLock(projectRoot: string) {
+    const deadline = Date.now() + 35_000;
+    for (;;) {
+      try {
+        return await acquireRuntimeLock(
+          projectRoot,
+          `continuity-${process.pid}`,
+          "continuity-state-update",
+          "continuity-state"
+        );
+      } catch (error) {
+        if (!(error instanceof RuntimeLockedError)) {
+          throw error;
+        }
+        if (Date.now() >= deadline) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+    }
+  }
+
   private async captureRepositoryEvidence(projectRoot: string) {
     const [state, snapshot, diff] = await Promise.all([
       this.store.readCurrentState(projectRoot),
@@ -411,9 +465,7 @@ export class RuntimeSupervisor {
           branch: snapshot.branch,
           isDirty: snapshot.isDirty,
           statusDigest: createStatusDigest(snapshot),
-          diffDigest: diff.text
-            ? createStatusDigest({ ...snapshot, statusText: diff.text })
-            : null,
+          diffDigest: createDiffDigest(diff),
           capturedAt: snapshot.capturedAt
         }
       },

@@ -201,13 +201,19 @@ describe("ACR MCP server", () => {
     const completionPayload = JSON.parse(getFirstText(completion)) as {
       ok: boolean;
       data: {
-        state: { activeTask: { status: string } };
+        state: {
+          activeTask: { status: string };
+          verification: { repositoryEvidence: unknown };
+        };
         checkpoint: { checkpointId: string };
       };
     };
 
     expect(completionPayload.ok).toBe(true);
     expect(completionPayload.data.state.activeTask.status).toBe("completed");
+    expect(
+      completionPayload.data.state.verification.repositoryEvidence
+    ).not.toBeNull();
     expect(completionPayload.data.checkpoint.checkpointId).toContain(
       "complete-task"
     );

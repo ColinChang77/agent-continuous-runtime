@@ -2,19 +2,22 @@
 
 ## Goal
 
-Add a structured conversation-memory layer so cross-tool handoff preserves user
-intent and key context, not just unfinished tasks.
+Differentiate ACR with repository-bound verification evidence that becomes
+explicitly stale when project code changes after verification.
 
 ## Acceptance criteria
 
-- Current state schema stores structured user-intent memory fields.
-- Resume briefs include that memory for the next tool.
-- An explicit MCP tool exists to record handoff memory without storing raw
-  transcripts by default.
+- Legacy state without verification evidence remains readable.
+- Verification results recorded through `complete_task` are bound to a fresh
+  repository snapshot.
+- Resume briefs label verification as current, stale, unbound, or not run.
+- Same-path tracked content changes invalidate earlier verification evidence.
+- Same-path untracked content changes also invalidate earlier evidence without
+  storing raw file contents.
 
 ## Status
 
-In progress
+Completed
 
 ## Completed
 
@@ -31,28 +34,43 @@ In progress
 - Wired automatic handoff-memory enrichment into runtime supervisor checkpoints
   and `prepare_handoff`, so manual `record_memory` is no longer required for the
   common switch/failover path.
+- Added backward-compatible defaults for legacy state without
+  `conversationMemory`.
+- Added distinct runtime locks for concurrent shortcut windows and serialized
+  final continuity updates.
+- Installed the rebuilt bundle globally and verified it against the exact
+  previously failing frontend project.
+- Passed targeted core/storage/runtime/CLI tests (36), format, lint, typecheck,
+  and build.
+- Added backward-compatible repository evidence to verification state.
+- Corrected tracked diff hashing so it fingerprints diff content instead of
+  hashing only the existing status fields.
+- Bound `complete_task` verification to Git HEAD, branch, status, and diff
+  evidence.
+- Added resume freshness labels and stale/unbound warnings.
+- Added related-project positioning and verification-freshness documentation.
+- Added SHA-256 fingerprints for untracked project files while safely hashing
+  symlink targets as link text rather than following them.
+- Passed lint, typecheck, build, all 76 automated tests, and the focused
+  26-test core/runtime/MCP verification suite.
 
 ## In progress
 
-- Updating repo continuity notes and docs to reflect the new handoff-memory
-  model.
+- None.
 
 ## Next
 
-- Decide whether to add opt-in transcript capture above the structured memory
-  layer.
-- Decide whether a dedicated human-readable memory document is worth adding.
+- Optionally add `acr resume --verify` to rerun explicitly approved stale
+  commands rather than only reporting their freshness.
 
 ## Blocked
 
-- `npm run typecheck` currently fails in `packages/cli/test/cli.test.ts`
-  (TS2532 on lines 180, 181, 185, 189, and 193). This appears unrelated to the
-  memory-layer work.
 - The current Apache-2.0 license is still permissive for redistribution, which
   may conflict with a proprietary sales model.
 - Structured memory is not the same as full transcript recall.
+- Verification freshness proves snapshot equality, not the semantic truth of
+  every narrative handoff claim.
 
 ## Out of scope
 
-- Fixing unrelated CLI test typing failures unless they prove coupled to the
-  current memory-layer work.
+- Automatically rerunning arbitrary recorded commands during resume.

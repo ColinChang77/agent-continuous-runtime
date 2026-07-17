@@ -1,5 +1,26 @@
 # Progress
 
+## 2026-07-17T04:21:27.816Z — codex
+
+- Task: Make repository-verified continuity a real ACR capability.
+- Changes: Added repository-bound verification evidence, content-sensitive diff
+  digests, resume freshness classification, backward-compatible schema defaults,
+  focused regression coverage, and related-project documentation.
+- Verification: `npm test` passed 76 tests; focused core/runtime/MCP suite passed
+  26 tests; `npm run typecheck`, `npm run lint`, `npm run build`, and
+  `git diff --check` passed.
+- Remaining work: Optional `acr resume --verify` command for approved reruns;
+  full live vendor failover remains best-effort and not deterministically tested.
+
+- 2026-07-16: Resolved the multi-window `acr-codex` failure. Legacy current
+  state files without `conversationMemory` now migrate in memory and persist on
+  the next normal state write. `acr-claude`/`acr-codex` shortcut loops opt into
+  concurrent runtime sessions with distinct locks, while continuity updates are
+  serialized to protect revisions when windows finish together. The rebuilt
+  bundle was installed globally. Verification: 36 targeted tests pass;
+  `format:check`, `lint`, `typecheck`, and `build` pass; global `acr resume`
+  succeeds against the exact previously failing frontend project.
+
 - 2026-07-15: Automatic handoff-memory enrichment is now live. Runtime
   supervisor writes structured conversation-memory context just before creating
   switch/failover checkpoints, and `prepare_handoff` does the same for explicit

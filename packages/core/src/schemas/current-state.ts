@@ -19,14 +19,27 @@ export const taskStatusSchema = z.enum([
 
 export const confidenceSchema = z.enum(["low", "medium", "high"]);
 
-export const conversationMemorySchema = z.object({
-  userIntent: z.string(),
-  userConstraints: z.array(z.string()),
-  userPreferences: z.array(z.string()),
-  rejectedApproaches: z.array(z.string()),
-  openQuestions: z.array(z.string()),
-  importantContext: z.array(z.string())
-});
+const emptyConversationMemory = {
+  userIntent: "",
+  userConstraints: [] as string[],
+  userPreferences: [] as string[],
+  rejectedApproaches: [] as string[],
+  openQuestions: [] as string[],
+  importantContext: [] as string[]
+};
+
+export const conversationMemorySchema = z
+  .object({
+    userIntent: z.string().default(""),
+    userConstraints: z.array(z.string()).default([]),
+    userPreferences: z.array(z.string()).default([]),
+    rejectedApproaches: z.array(z.string()).default([]),
+    openQuestions: z.array(z.string()).default([]),
+    importantContext: z.array(z.string()).default([])
+  })
+  // State created before conversation memory was introduced must remain
+  // readable. The next normal state write persists this migrated shape.
+  .default(emptyConversationMemory);
 
 export const currentStateSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
@@ -58,7 +71,10 @@ export const currentStateSchema = z.object({
     commands: z.array(z.string()),
     passed: z.array(z.string()),
     failed: z.array(z.string()),
-    notRunReason: z.string().nullable()
+    notRunReason: z.string().nullable(),
+    // Legacy state did not bind verification results to repository evidence.
+    // Keep it readable, but treat those results as unbound during resume.
+    repositoryEvidence: repositoryEvidenceSchema.nullable().default(null)
   }),
   knownIssues: z.array(z.string()),
   blockers: z.array(z.string()),

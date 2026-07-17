@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "revision": 6,
-  "updatedAt": "2026-07-15T07:58:27.000Z",
+  "revision": 9,
+  "updatedAt": "2026-07-17T04:21:27.816Z",
   "updatedBy": {
     "agent": "acr",
     "adapterVersion": "1.0.0",
@@ -13,21 +13,22 @@
     "defaultBranch": "main"
   },
   "objective": {
-    "summary": "Add a structured conversation-memory layer so cross-tool handoff preserves user intent and key context, not just unfinished tasks.",
+    "summary": "Differentiate ACR with repository-bound verification evidence that becomes stale when project code changes.",
     "acceptanceCriteria": [
-      "Current state schema stores structured user-intent memory fields.",
-      "Resume briefs include the structured memory so the next tool sees why the work matters, not only what to do next.",
-      "An explicit MCP tool exists to record handoff memory without relying on raw transcript capture."
+      "Legacy state without verification evidence remains readable.",
+      "complete_task binds verification results to fresh repository evidence.",
+      "Resume briefs report current, stale, unbound, or not-run verification.",
+      "Same-path tracked content changes invalidate earlier evidence."
     ],
     "constraints": [
       "Inspect repository truth before trusting continuity state."
     ]
   },
   "activeTask": {
-    "id": "CONVERSATION-MEMORY",
-    "title": "Add structured conversation memory for handoff",
-    "status": "in_progress",
-    "startedAt": "2026-07-15T04:33:03.398Z",
+    "id": "VERIFICATION-FRESHNESS",
+    "title": "Bind verification evidence to repository state",
+    "status": "completed",
+    "startedAt": "2026-07-17T04:10:00.000Z",
     "lastCheckpointId": null
   },
   "completedSteps": [
@@ -35,15 +36,18 @@
     "Ran targeted runtime verification and confirmed packages/runtime/test/runtime.test.ts passes.",
     "Created an installable customer artifact with npm pack and wrote a dedicated commercial delivery guide.",
     "Extended the continuity schema, resume engine, and MCP server so handoffs can carry structured conversation memory.",
-    "Connected automatic pre-handoff memory enrichment to runtime failover/switch checkpoints and the prepare_handoff tool."
+    "Connected automatic pre-handoff memory enrichment to runtime failover/switch checkpoints and the prepare_handoff tool.",
+    "Added backward-compatible conversationMemory defaults for legacy state.",
+    "Added per-session shortcut locks and serialized concurrent continuity writes.",
+    "Installed the rebuilt bundle globally and verified the reported frontend project.",
+    "Added repository-bound verification evidence with backward-compatible schema defaults.",
+    "Fixed diffDigest to hash tracked project-content diff bytes while excluding ACR metadata.",
+    "Added verification freshness classification and stale/unbound resume warnings.",
+    "Documented related projects and ACR's repository-truth positioning.",
+    "Added content fingerprints for untracked project files without storing their contents."
   ],
-  "inProgressSteps": [
-    "Update repository continuity state to capture the new automatic handoff-memory behavior and remaining follow-up."
-  ],
-  "nextSteps": [
-    "Decide whether to add a dedicated memory document or keep the feature state-only plus resume-brief rendering.",
-    "Decide whether to augment automatic memory with opt-in transcript capture or leave transcripts out of scope."
-  ],
+  "inProgressSteps": [],
+  "nextSteps": [],
   "touchedFiles": {
     "created": [],
     "modified": [
@@ -64,39 +68,16 @@
       "packages/mcp-server/src/server.ts",
       "packages/core/test/schemas.test.ts",
       "packages/runtime/test/runtime.test.ts",
-      "packages/mcp-server/test/server.test.ts"
+      "packages/mcp-server/test/server.test.ts",
+      "packages/runtime/src/runtime-lock.ts",
+      "packages/runtime/src/supervisor.ts",
+      "packages/cli/src/index.ts",
+      "packages/runtime/src/repository-inspector.ts",
+      "packages/core/src/services/resume-types.ts",
+      "packages/mcp-server/src/project-service.ts",
+      "packages/mcp-server/src/server.ts"
     ],
     "deleted": []
-  },
-  "artifacts": {
-    "created": ["COMMERCIAL_DELIVERY.md", "agent-continuity-runtime-1.0.0.tgz"],
-    "generated": [".npm-logs/"]
-  },
-  "customerDelivery": {
-    "packageFile": "agent-continuity-runtime-1.0.0.tgz",
-    "packageSha256": "b5ce351398ff3963db39e6985aebfbaf3159cd383efbdfd102fb163cb521af13",
-    "installCommand": "npm install -g ./agent-continuity-runtime-1.0.0.tgz",
-    "guide": "COMMERCIAL_DELIVERY.md",
-    "licenseStatus": "Apache-2.0 still active; redistribution restrictions are not yet changed."
-  },
-  "conversationMemory": {
-    "userIntent": "The product must preserve user-to-agent context across tool handoff, not just the unfinished task list.",
-    "userConstraints": [
-      "Do not depend on hidden provider-side chat history.",
-      "Do not store full raw transcripts by default."
-    ],
-    "userPreferences": [
-      "Prefer structured, high-signal memory over verbose chat replay."
-    ],
-    "rejectedApproaches": [
-      "Relying only on checkpoint summaries with no explicit user-intent memory."
-    ],
-    "openQuestions": [
-      "Should optional full transcript capture exist as an opt-in premium feature?"
-    ],
-    "importantContext": [
-      "Current handoff was good at task continuity but weak at preserving why the user asked for the work."
-    ]
   },
   "verification": {
     "commands": [
@@ -104,19 +85,44 @@
       "npx vitest run packages/runtime/test/runtime.test.ts",
       "npm --cache ./.npm-cache --logs-dir ./.npm-logs pack",
       "npx vitest run packages/core/test/schemas.test.ts packages/runtime/test/runtime.test.ts packages/mcp-server/test/server.test.ts packages/storage-local/test/local-store.test.ts",
-      "npx vitest run packages/runtime/test/runtime.test.ts packages/mcp-server/test/server.test.ts"
+      "npx vitest run packages/runtime/test/runtime.test.ts packages/mcp-server/test/server.test.ts",
+      "npx vitest run packages/core/test/schemas.test.ts packages/storage-local/test/local-store.test.ts packages/runtime/test/runtime.test.ts packages/cli/test/cli.test.ts",
+      "npm run format:check && npm run lint && npm run typecheck && npm run build",
+      "acr resume /Users/holingchang/Desktop/travel/frontend",
+      "npx vitest run packages/core/test/schemas.test.ts packages/runtime/test/runtime.test.ts packages/mcp-server/test/server.test.ts",
+      "npm test",
+      "npm run typecheck",
+      "npm run lint",
+      "npm run build",
+      "git diff --check"
     ],
     "passed": [
       "npx vitest run packages/runtime/test/runtime.test.ts",
       "npm --cache ./.npm-cache --logs-dir ./.npm-logs pack",
       "npx vitest run packages/core/test/schemas.test.ts packages/runtime/test/runtime.test.ts packages/mcp-server/test/server.test.ts packages/storage-local/test/local-store.test.ts",
-      "npx vitest run packages/runtime/test/runtime.test.ts packages/mcp-server/test/server.test.ts"
+      "npx vitest run packages/runtime/test/runtime.test.ts packages/mcp-server/test/server.test.ts",
+      "npx vitest run packages/core/test/schemas.test.ts packages/storage-local/test/local-store.test.ts packages/runtime/test/runtime.test.ts packages/cli/test/cli.test.ts",
+      "npm run format:check && npm run lint && npm run typecheck && npm run build",
+      "acr resume /Users/holingchang/Desktop/travel/frontend",
+      "npx vitest run packages/core/test/schemas.test.ts packages/runtime/test/runtime.test.ts packages/mcp-server/test/server.test.ts (26 tests)",
+      "npm test (76 tests, 3 skipped)",
+      "npm run typecheck",
+      "npm run lint",
+      "npm run build",
+      "git diff --check"
     ],
-    "failed": ["npm run typecheck"],
-    "notRunReason": null
+    "failed": [],
+    "notRunReason": null,
+    "repositoryEvidence": {
+      "head": "ffa461512c98d922d25a9853046c729a14b51f8c",
+      "branch": "main",
+      "isDirty": true,
+      "statusDigest": "836cd29bd8bd626119daf60188a086316d3cbc767cfe17918cd8d5552b72cc06",
+      "diffDigest": "eb5ad36eb9d7d3836e1e9b37ac6d367f4bf155e817c52f4367ae9fe1854ff51d",
+      "capturedAt": "2026-07-17T04:24:09.837Z"
+    }
   },
   "knownIssues": [
-    "Repo-wide typecheck currently fails in packages/cli/test/cli.test.ts with TS2532 'Object is possibly undefined' on lines 180, 181, 185, 189, and 193; this is outside the runtime transport change.",
     "The repository still declares Apache-2.0, so selling the package as proprietary software without changing the license leaves redistribution rights broader than most paid-distribution models want.",
     "Conversation memory currently stores structured summaries only; it does not capture full raw chat transcripts.",
     "Automatic handoff memory enriches context from continuity state and handoff metadata; it still cannot recover hidden provider-side conversation history."
@@ -126,15 +132,42 @@
     "Treat the runtime transport fallback work as verified but switch the active objective to commercial delivery because the user asked how to hand the product to paying customers.",
     "Package the product with npm pack and document customer installation rather than sending the entire source repository.",
     "Implement handoff memory as structured state plus resume-brief rendering, not full transcript storage.",
-    "Automatically enrich conversation memory at runtime handoff points instead of requiring manual record_memory calls for every switch."
+    "Automatically enrich conversation memory at runtime handoff points instead of requiring manual record_memory calls for every switch.",
+    "Treat verification as current only when its bound HEAD, branch, status digest, and tracked project-content diff digest still match."
   ],
-  "lastSuccessfulAction": "Added automatic pre-handoff conversation-memory enrichment in runtime and MCP handoff paths with passing targeted tests.",
-  "lastFailedAction": "Repo-wide typecheck still fails due to existing CLI test typing errors unrelated to the new conversation-memory changes.",
+  "conversationMemory": {
+    "userIntent": "The user wants ACR optimized into a credible, differentiated open-source tool rather than another generic cross-agent memory project.",
+    "userConstraints": [
+      "Do not depend on hidden provider-side chat history.",
+      "Do not store full raw transcripts by default.",
+      "Do not require deleting existing .agent continuity state to upgrade."
+    ],
+    "userPreferences": [
+      "Prefer structured, high-signal memory over verbose chat replay.",
+      "Multiple shortcut windows should feel independent and just work."
+    ],
+    "rejectedApproaches": [
+      "Relying only on checkpoint summaries with no explicit user-intent memory."
+    ],
+    "openQuestions": [
+      "Should optional full transcript capture exist as an opt-in premium feature?"
+    ],
+    "importantContext": [
+      "Current handoff was good at task continuity but weak at preserving why the user asked for the work.",
+      "The exact failing frontend state was legacy revision 2 and omitted conversationMemory.",
+      "Repository-bound verification freshness is the chosen differentiator from transcript transfer and long-term memory tools."
+    ]
+  },
+  "lastSuccessfulAction": "Implemented and verified repository-bound verification freshness for tracked and untracked content; all 76 automated tests, lint, typecheck, and build pass.",
+  "lastFailedAction": null,
   "recovery": {
-    "resumeFrom": "Decide whether to keep automatic structured memory only or add optional transcript capture on top of it.",
+    "resumeFrom": "Verification freshness is implemented; next consider an opt-in acr resume --verify workflow for approved command reruns.",
     "inspectFirst": [
+      "packages/runtime/src/runtime-lock.ts",
+      "packages/runtime/src/supervisor.ts",
+      "packages/runtime/src/repository-inspector.ts",
       "packages/runtime/src/resume-engine.ts",
-      "packages/mcp-server/src/server.ts",
+      "packages/mcp-server/src/project-service.ts",
       "packages/core/src/schemas/current-state.ts",
       ".agent/CURRENT_STATE.json"
     ],
@@ -142,11 +175,11 @@
     "confidence": "high"
   },
   "repositoryEvidence": {
-    "head": "7bb6efc6fd27c56edbd20f3d4c2fb412822b6844",
+    "head": "ffa461512c98d922d25a9853046c729a14b51f8c",
     "branch": "main",
     "isDirty": true,
-    "statusDigest": "7595485a90dd0c85e3208d48dad7102ff1bd7dd147ced1037a4cd8ad4d764190",
-    "diffDigest": "fbd4ea2b44e9e82f0cd5e446a7d0a42bdfdc76ff0cb53deb6183643a93c5711b",
-    "capturedAt": "2026-07-15T07:58:27.000Z"
+    "statusDigest": "836cd29bd8bd626119daf60188a086316d3cbc767cfe17918cd8d5552b72cc06",
+    "diffDigest": "eb5ad36eb9d7d3836e1e9b37ac6d367f4bf155e817c52f4367ae9fe1854ff51d",
+    "capturedAt": "2026-07-17T04:24:09.837Z"
   }
 }

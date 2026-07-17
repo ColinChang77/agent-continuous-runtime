@@ -4,10 +4,12 @@ import {
   type ReconcileResult,
   type RepositoryInspector,
   type ResumeBrief,
-  type ResumeEngine
+  type ResumeEngine,
+  type VerificationFreshness
 } from "@acr/core";
 
 import {
+  createDiffDigest,
   createRepositoryInspector,
   createStatusDigest
 } from "./repository-inspector.js";
@@ -20,6 +22,33 @@ function nonEmpty(values: string[]): string[] {
   return values.map((value) => value.trim()).filter(Boolean);
 }
 
+function verificationFreshness(
+  state: Awaited<ReturnType<ContinuityStore["readCurrentState"]>>,
+  currentEvidence: {
+    head: string | null;
+    branch: string | null;
+    statusDigest: string;
+    diffDigest: string | null;
+  }
+): VerificationFreshness {
+  if (
+    state.verification.passed.length === 0 &&
+    state.verification.failed.length === 0
+  ) {
+    return "not_run";
+  }
+
+  const recorded = state.verification.repositoryEvidence;
+  if (!recorded) return "unbound";
+
+  return recorded.head === currentEvidence.head &&
+    recorded.branch === currentEvidence.branch &&
+    recorded.statusDigest === currentEvidence.statusDigest &&
+    recorded.diffDigest === currentEvidence.diffDigest
+    ? "current"
+    : "stale";
+}
+
 export class DefaultResumeEngine implements ResumeEngine {
   constructor(
     private readonly store: ContinuityStore,
@@ -27,9 +56,10 @@ export class DefaultResumeEngine implements ResumeEngine {
   ) {}
 
   async reconcile(projectRoot: string): Promise<ReconcileResult> {
-    const [state, snapshot] = await Promise.all([
+    const [state, snapshot, diff] = await Promise.all([
       this.store.readCurrentState(projectRoot),
-      this.inspector.inspect(projectRoot)
+      this.inspector.inspect(projectRoot),
+      this.inspector.diff(projectRoot)
     ]);
 
     const changedFiles = unique([
@@ -43,6 +73,7 @@ export class DefaultResumeEngine implements ResumeEngine {
       ...state.touchedFiles.deleted
     ]);
     const currentDigest = createStatusDigest(snapshot);
+    const currentDiffDigest = createDiffDigest(diff);
     const warnings: string[] = [];
 
     let drift: DriftClass = "none";
@@ -58,6 +89,7 @@ export class DefaultResumeEngine implements ResumeEngine {
       );
     } else if (
       state.repositoryEvidence.statusDigest !== currentDigest ||
+      state.repositoryEvidence.diffDigest !== currentDiffDigest ||
       state.repositoryEvidence.head !== snapshot.head ||
       state.repositoryEvidence.branch !== snapshot.branch
     ) {
@@ -67,10 +99,27 @@ export class DefaultResumeEngine implements ResumeEngine {
       );
     }
 
+    const verificationStatus = verificationFreshness(state, {
+      head: snapshot.head,
+      branch: snapshot.branch,
+      statusDigest: currentDigest,
+      diffDigest: currentDiffDigest
+    });
+    if (verificationStatus === "stale") {
+      warnings.push(
+        "Recorded verification evidence is stale because the repository changed after it was captured."
+      );
+    } else if (verificationStatus === "unbound") {
+      warnings.push(
+        "Recorded verification results predate repository-bound evidence and cannot be proven current."
+      );
+    }
+
     return {
       drift,
       changedFiles,
-      warnings
+      warnings,
+      verificationFreshness: verificationStatus
     };
   }
 
@@ -130,6 +179,7 @@ export class DefaultResumeEngine implements ResumeEngine {
         : ["- none"]),
       "",
       "## Verification",
+      `- Evidence freshness: ${reconcileResult.verificationFreshness}`,
       ...(state.verification.passed.length > 0
         ? state.verification.passed.map((value) => `- passed: ${value}`)
         : ["- No passing verification recorded."]),
@@ -150,6 +200,7 @@ export class DefaultResumeEngine implements ResumeEngine {
       nextAction,
       changedFiles: reconcileResult.changedFiles,
       warnings: reconcileResult.warnings,
+      verificationFreshness: reconcileResult.verificationFreshness,
       repository: snapshot,
       conversationMemory: memory
     };

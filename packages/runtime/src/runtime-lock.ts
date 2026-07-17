@@ -70,11 +70,15 @@ function isStaleOwner(owner: Record<string, unknown> | undefined): boolean {
 export async function acquireRuntimeLock(
   projectRoot: string,
   runtimeId = `runtime-${process.pid}`,
-  purpose = "runtime-supervision"
+  purpose = "runtime-supervision",
+  lockName = "runtime"
 ): Promise<RuntimeLockHandle> {
+  if (!/^[a-zA-Z0-9_-]+$/.test(lockName)) {
+    throw new Error(`Invalid runtime lock name: ${lockName}`);
+  }
   const lockDir = path.join(projectRoot, ".acr", "locks");
   await mkdir(lockDir, { recursive: true });
-  const lockPath = path.join(lockDir, "runtime.lock.json");
+  const lockPath = path.join(lockDir, `${lockName}.lock.json`);
 
   try {
     const file = await open(lockPath, "wx");

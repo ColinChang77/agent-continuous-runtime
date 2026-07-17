@@ -1,4 +1,8 @@
 import { execFile } from "node:child_process";
+import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
+import { lstat, readFile, readlink } from "node:fs/promises";
+import path from "node:path";
 import { promisify } from "node:util";
 
 import {
@@ -69,6 +73,32 @@ function parseStatusText(statusText: string): {
   return { stagedPaths, unstagedPaths, untrackedPaths };
 }
 
+async function fingerprintUntrackedFiles(projectRoot: string): Promise<string> {
+  const { stdout } = await runGit(projectRoot, [
+    "ls-files",
+    "--others",
+    "--exclude-standard",
+    "-z",
+    "--",
+    ".",
+    ":(exclude).agent/**",
+    ":(exclude).acr/**"
+  ]);
+  const relativePaths = stdout.split("\0").filter(Boolean).sort();
+  const fingerprints = await Promise.all(
+    relativePaths.map(async (relativePath) => {
+      const absolutePath = path.join(projectRoot, relativePath);
+      const fileStat = await lstat(absolutePath);
+      const content = fileStat.isSymbolicLink()
+        ? Buffer.from(`symlink:${await readlink(absolutePath)}`)
+        : await readFile(absolutePath);
+      const digest = createHash("sha256").update(content).digest("hex");
+      return `${relativePath}\0${digest}`;
+    })
+  );
+  return fingerprints.join("\n");
+}
+
 export class GitRepositoryInspector implements RepositoryInspector {
   async inspect(projectRoot: string): Promise<RepositorySnapshot> {
     const capturedAt = new Date().toISOString();
@@ -125,12 +155,37 @@ export class GitRepositoryInspector implements RepositoryInspector {
       return { files: [], text: "" };
     }
 
-    const { stdout } = await runGit(projectRoot, ["diff", "--name-status"]);
-    const files = stdout
+    const continuityExclusions = [
+      "--",
+      ".",
+      ":(exclude).agent/**",
+      ":(exclude).acr/**"
+    ];
+    const [namesResult, contentResult, untrackedFingerprints] =
+      await Promise.all([
+        runGit(projectRoot, [
+          "diff",
+          "HEAD",
+          "--name-status",
+          ...continuityExclusions
+        ]),
+        runGit(projectRoot, [
+          "diff",
+          "HEAD",
+          "--binary",
+          "--no-ext-diff",
+          ...continuityExclusions
+        ]),
+        fingerprintUntrackedFiles(projectRoot)
+      ]);
+    const files = namesResult.stdout
       .split("\n")
       .map((line) => line.trim().split(/\s+/).at(-1) ?? "")
       .filter(Boolean);
-    return { files, text: stdout };
+    const text = [contentResult.stdout, untrackedFingerprints]
+      .filter(Boolean)
+      .join("\n# ACR untracked file fingerprints\n");
+    return { files, text };
   }
 
   async recentHistory(
@@ -174,4 +229,8 @@ export function createStatusDigest(snapshot: RepositorySnapshot): string {
       untrackedPaths: snapshot.untrackedPaths
     })
   );
+}
+
+export function createDiffDigest(diff: DiffSummary): string | null {
+  return diff.text ? sha256(diff.text) : null;
 }

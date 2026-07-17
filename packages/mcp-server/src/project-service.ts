@@ -8,6 +8,7 @@ import {
 } from "@acr/core";
 import {
   applyAutomaticConversationMemory,
+  createDiffDigest,
   createResumeEngine,
   createRepositoryInspector,
   createStatusDigest
@@ -59,29 +60,58 @@ export class ProjectService {
     this.resumeEngine = createResumeEngine(this.store, this.inspector);
   }
 
-  async refreshRepositoryEvidence(projectRoot: string): Promise<CurrentState> {
-    const [currentState, snapshot, diff] = await Promise.all([
-      this.store.readCurrentState(projectRoot),
+  private async captureRepositoryEvidence(projectRoot: string) {
+    const [snapshot, diff] = await Promise.all([
       this.inspector.inspect(projectRoot),
       this.inspector.diff(projectRoot)
+    ]);
+
+    return {
+      head: snapshot.head,
+      branch: snapshot.branch,
+      isDirty: snapshot.isDirty,
+      statusDigest: createStatusDigest(snapshot),
+      diffDigest: createDiffDigest(diff),
+      capturedAt: snapshot.capturedAt
+    };
+  }
+
+  async refreshRepositoryEvidence(projectRoot: string): Promise<CurrentState> {
+    const [currentState, repositoryEvidence] = await Promise.all([
+      this.store.readCurrentState(projectRoot),
+      this.captureRepositoryEvidence(projectRoot)
     ]);
 
     return this.store.writeCurrentState(
       projectRoot,
       {
         ...currentState,
-        repositoryEvidence: {
-          head: snapshot.head,
-          branch: snapshot.branch,
-          isDirty: snapshot.isDirty,
-          statusDigest: createStatusDigest(snapshot),
-          diffDigest: diff.text
-            ? createStatusDigest({ ...snapshot, statusText: diff.text })
-            : null,
-          capturedAt: snapshot.capturedAt
-        }
+        repositoryEvidence
       },
       currentState.revision
+    );
+  }
+
+  async bindVerificationEvidence(
+    projectRoot: string,
+    expectedRevision: number
+  ): Promise<CurrentState> {
+    const [currentState, repositoryEvidence] = await Promise.all([
+      this.store.readCurrentState(projectRoot),
+      this.captureRepositoryEvidence(projectRoot)
+    ]);
+
+    return this.store.writeCurrentState(
+      projectRoot,
+      {
+        ...currentState,
+        verification: {
+          ...currentState.verification,
+          repositoryEvidence
+        },
+        repositoryEvidence
+      },
+      expectedRevision
     );
   }
 
@@ -194,7 +224,16 @@ export class ProjectService {
         ? { ...current.touchedFiles, ...patch.touchedFiles }
         : current.touchedFiles,
       verification: patch.verification
-        ? { ...current.verification, ...patch.verification }
+        ? {
+            ...current.verification,
+            ...patch.verification,
+            repositoryEvidence: Object.hasOwn(
+              patch.verification,
+              "repositoryEvidence"
+            )
+              ? (patch.verification.repositoryEvidence ?? null)
+              : null
+          }
         : current.verification,
       conversationMemory: patch.conversationMemory
         ? { ...current.conversationMemory, ...patch.conversationMemory }

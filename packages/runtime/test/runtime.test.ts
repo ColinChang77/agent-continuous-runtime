@@ -12,9 +12,11 @@ import { createLocalStore } from "@acr/storage-local";
 import {
   createProcessRunner,
   acquireRuntimeLock,
+  createDiffDigest,
   createRepositoryInspector,
   createResumeEngine,
   createRuntimeSupervisor,
+  createStatusDigest,
   readRuntimeState,
   InheritTransportStrategy
 } from "../src/index.js";
@@ -121,6 +123,117 @@ describe("resume engine", () => {
       "Prefer concise structured memory."
     );
   });
+
+  it("marks repository-bound verification stale when tracked content changes", async () => {
+    const projectRoot = await createTempProject();
+    const store = createLocalStore();
+    const inspector = createRepositoryInspector();
+
+    await runGit(projectRoot, ["init", "-b", "main"]);
+    await runGit(projectRoot, ["config", "user.email", "acr@example.com"]);
+    await runGit(projectRoot, ["config", "user.name", "ACR"]);
+    await writeFile(path.join(projectRoot, "tracked.txt"), "one\n", "utf8");
+    await runGit(projectRoot, ["add", "tracked.txt"]);
+    await runGit(projectRoot, ["commit", "-m", "initial"]);
+    await store.initialize(projectRoot);
+
+    await writeFile(path.join(projectRoot, "tracked.txt"), "two\n", "utf8");
+    const [snapshot, diff] = await Promise.all([
+      inspector.inspect(projectRoot),
+      inspector.diff(projectRoot)
+    ]);
+    const repositoryEvidence = {
+      head: snapshot.head,
+      branch: snapshot.branch,
+      isDirty: snapshot.isDirty,
+      statusDigest: createStatusDigest(snapshot),
+      diffDigest: createDiffDigest(diff),
+      capturedAt: snapshot.capturedAt
+    };
+    const current = await store.readCurrentState(projectRoot);
+    await store.writeCurrentState(
+      projectRoot,
+      {
+        ...current,
+        verification: {
+          commands: ["npm test"],
+          passed: ["npm test"],
+          failed: [],
+          notRunReason: null,
+          repositoryEvidence
+        },
+        repositoryEvidence
+      },
+      current.revision
+    );
+
+    const engine = createResumeEngine(store);
+    expect((await engine.generate(projectRoot)).verificationFreshness).toBe(
+      "current"
+    );
+
+    await writeFile(path.join(projectRoot, "tracked.txt"), "three\n", "utf8");
+    const staleBrief = await engine.generate(projectRoot);
+
+    expect(staleBrief.verificationFreshness).toBe("stale");
+    expect(staleBrief.summary).toContain("Evidence freshness: stale");
+    expect(staleBrief.warnings).toContain(
+      "Recorded verification evidence is stale because the repository changed after it was captured."
+    );
+  });
+
+  it("marks verification stale when an untracked file changes in place", async () => {
+    const projectRoot = await createTempProject();
+    const store = createLocalStore();
+    const inspector = createRepositoryInspector();
+
+    await runGit(projectRoot, ["init", "-b", "main"]);
+    await runGit(projectRoot, ["config", "user.email", "acr@example.com"]);
+    await runGit(projectRoot, ["config", "user.name", "ACR"]);
+    await writeFile(path.join(projectRoot, "README.md"), "base\n", "utf8");
+    await runGit(projectRoot, ["add", "README.md"]);
+    await runGit(projectRoot, ["commit", "-m", "initial"]);
+    await store.initialize(projectRoot);
+    await writeFile(path.join(projectRoot, "draft.ts"), "one\n", "utf8");
+
+    const [snapshot, diff] = await Promise.all([
+      inspector.inspect(projectRoot),
+      inspector.diff(projectRoot)
+    ]);
+    const repositoryEvidence = {
+      head: snapshot.head,
+      branch: snapshot.branch,
+      isDirty: snapshot.isDirty,
+      statusDigest: createStatusDigest(snapshot),
+      diffDigest: createDiffDigest(diff),
+      capturedAt: snapshot.capturedAt
+    };
+    const current = await store.readCurrentState(projectRoot);
+    await store.writeCurrentState(
+      projectRoot,
+      {
+        ...current,
+        verification: {
+          commands: ["npm test"],
+          passed: ["npm test"],
+          failed: [],
+          notRunReason: null,
+          repositoryEvidence
+        },
+        repositoryEvidence
+      },
+      current.revision
+    );
+
+    const engine = createResumeEngine(store);
+    expect((await engine.generate(projectRoot)).verificationFreshness).toBe(
+      "current"
+    );
+    await writeFile(path.join(projectRoot, "draft.ts"), "two\n", "utf8");
+    expect((await engine.generate(projectRoot)).verificationFreshness).toBe(
+      "stale"
+    );
+  });
 });
 
 describe("runtime lock", () => {
@@ -160,9 +273,55 @@ describe("runtime lock", () => {
     expect(lock.path).toContain("runtime.lock.json");
     await lock.release();
   });
+
+  it("allows independent named runtime locks for concurrent windows", async () => {
+    const projectRoot = await createTempProject();
+    const first = await acquireRuntimeLock(
+      projectRoot,
+      "session-1",
+      "runtime-supervision",
+      "runtime-101"
+    );
+    const second = await acquireRuntimeLock(
+      projectRoot,
+      "session-2",
+      "runtime-supervision",
+      "runtime-202"
+    );
+
+    expect(first.path).not.toBe(second.path);
+    await Promise.all([first.release(), second.release()]);
+  });
 });
 
 describe("runtime supervisor", () => {
+  it("runs multiple shortcut sessions concurrently in one project", async () => {
+    const projectRoot = await createTempProject();
+    const store = createLocalStore();
+    await store.initialize(projectRoot);
+    const fakeAdapter = createFakeAgentAdapter();
+
+    const results = await Promise.all([
+      createRuntimeSupervisor().startSession({
+        projectRoot,
+        agent: fakeAdapter,
+        scenario: "success",
+        allowConcurrent: true
+      }),
+      createRuntimeSupervisor().startSession({
+        projectRoot,
+        agent: fakeAdapter,
+        scenario: "success",
+        allowConcurrent: true
+      })
+    ]);
+
+    expect(
+      results.every((result) => result.classification.kind === "normal_exit")
+    ).toBe(true);
+    expect((await store.readCurrentState(projectRoot)).revision).toBe(5);
+  });
+
   it("writes a recovery checkpoint and fails over on usage limit", async () => {
     const projectRoot = await createTempProject();
     const supervisor = createRuntimeSupervisor();

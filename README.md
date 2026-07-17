@@ -11,6 +11,7 @@ Agent Continuity Runtime (ACR) is a local-first continuity layer for AI coding a
 - Stores portable continuity state under `.agent/`
 - Stores machine-local runtime state under `.acr/`
 - Generates evidence-backed resume briefs from state plus repository inspection
+- Binds recorded verification results to the Git and working-tree snapshot where they ran, then marks them stale after repository drift
 - Carries forward structured conversation memory such as user intent, constraints, preferences, rejected approaches, and open questions
 - Exposes continuity through an MCP server over stdio
 - Supervises agent processes and performs best-effort failover
@@ -438,6 +439,36 @@ Repository
 - Vendor output changes over time.
 - Exit codes alone are not enough to prove a usage limit.
 - Classifiers are conservative and evidence-based, not guaranteed.
+
+## Verification freshness
+
+Verification results recorded through `complete_task` are bound to the current
+Git HEAD, branch, status digest, tracked project-content diff, and untracked file
+fingerprints (excluding ACR's own `.agent/` and `.acr/` metadata). Every resume
+compares that evidence with a fresh repository inspection and labels it as:
+
+- `current` — the recorded repository snapshot still matches
+- `stale` — code or repository state changed after verification
+- `unbound` — the result came from legacy state without repository evidence
+- `not_run` — no passing or failing verification was recorded
+
+ACR detects when evidence is no longer current; it does not claim that a passing
+command proves every narrative statement in a handoff.
+
+## Related projects
+
+The coding-agent continuity ecosystem includes excellent tools with different
+goals. [`continues`](https://github.com/yigitkonur/cli-continues) imports native
+sessions across many agent CLIs. [`ai-memory`](https://github.com/akitaonrails/ai-memory)
+and [`agentmemory`](https://github.com/rohitg00/agentmemory) focus on durable,
+searchable long-term memory. OpenAI's
+[`codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) supports direct
+Claude Code to Codex transfer.
+
+ACR focuses on repository-resident operational state, drift-aware resume briefs,
+verification freshness, checkpointing, and supervised recovery. It can
+complement native session transfer or a long-term memory system rather than
+replace either one.
 
 ## Contribution and release
 

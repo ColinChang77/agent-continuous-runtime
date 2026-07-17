@@ -1,0 +1,28 @@
+{
+  "checkpointId": "2026-07-15T07-40-15.092Z_claude-code",
+  "schemaVersion": "1.0.0",
+  "timestamp": "2026-07-15T07:40:15.092Z",
+  "createdBy": {
+    "agent": "acr",
+    "adapterVersion": "1.0.0",
+    "sessionId": "bootstrap"
+  },
+  "reason": "normal_exit",
+  "currentStateRevision": 2,
+  "gitHead": "7bb6efc6fd27c56edbd20f3d4c2fb412822b6844",
+  "branch": "main",
+  "statusDigest": "2de06231111e034990cff093de06a8d03a17120c0fcbba357d8db0d68e92e872",
+  "diffDigest": "2de06231111e034990cff093de06a8d03a17120c0fcbba357d8db0d68e92e872",
+  "touchedPaths": {
+    "created": [],
+    "modified": [],
+    "deleted": []
+  },
+  "verificationResults": {
+    "passed": [],
+    "failed": []
+  },
+  "safeToResume": false,
+  "parentCheckpointId": null,
+  "snapshotRefs": []
+}

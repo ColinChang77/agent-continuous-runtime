@@ -549,6 +549,10 @@ export function createAcrMcpServer(options: AcrMcpServerOptions) {
             }
           }
         );
+        const verified = await projectService.bindVerificationEvidence(
+          resolvedRoot,
+          next.revision
+        );
         const checkpoint = await projectService.createCheckpoint(
           resolvedRoot,
           "complete-task",
@@ -559,7 +563,7 @@ export function createAcrMcpServer(options: AcrMcpServerOptions) {
         return {
           stateRevision: checkpoint.state.revision,
           data: {
-            state: next,
+            state: verified,
             checkpoint: checkpoint.checkpoint
           }
         };

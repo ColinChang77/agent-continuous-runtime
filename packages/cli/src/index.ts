@@ -853,6 +853,7 @@ async function runAgentLoop(
       projectRoot,
       agent: adapter,
       fallbacks: [],
+      allowConcurrent: true,
       resolveAdapterById: (adapterId) =>
         launcher.registry().get(adapterId)?.adapter
     });

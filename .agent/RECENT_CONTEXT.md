@@ -1,5 +1,28 @@
 # Recent Context
 
+- 2026-07-16: Added repository-bound verification freshness as ACR's concrete
+  differentiation from transcript-transfer and long-term-memory tools.
+  `complete_task` now binds verification results to Git HEAD, branch, status
+  digest, and a tracked project-content diff digest. Resume labels evidence as
+  `current`, `stale`, `unbound`, or `not_run`; legacy state remains readable.
+  Fixed the previous `diffDigest` implementation, which accidentally rehashed
+  status fields instead of diff content, and excluded `.agent/`/`.acr/` from
+  content hashing to avoid self-referential invalidation. Same-path changes to
+  tracked and untracked files are covered; untracked contents are represented
+  only by local SHA-256 fingerprints and symlinks are not followed. Added an
+  honest Related Projects section to README. Full suite passes: 76 tests, lint,
+  typecheck, and build.
+- 2026-07-16: Fixed `acr-codex` startup for legacy projects and enabled
+  independent shortcut windows in the same project. The reported
+  `Desktop/travel/frontend/.agent/CURRENT_STATE.json` was created before
+  `conversationMemory` became required, so the new schema rejected it. The
+  schema now supplies backward-compatible empty memory defaults. Shortcut
+  sessions now use per-session runtime locks, ignore ambiguous project-wide
+  switch requests, and serialize their final continuity-state/checkpoint write.
+  Installed the rebuilt workspace globally and verified the global `acr resume`
+  reads the affected frontend state successfully. Targeted core, storage,
+  runtime, and CLI suites pass (36 tests); format, lint, typecheck, and build
+  also pass.
 - 2026-07-16: Open-sourced the project. The GitHub repo
   (ColinChang77/agent-continuous-runtime) was PRIVATE and its LICENSE was a
   73-byte stub (GitHub detected "Other"). Ran a secret scan over the working tree

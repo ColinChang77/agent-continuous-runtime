@@ -83,6 +83,7 @@ describe("core schemas", () => {
     });
 
     expect(parsed.activeTask.status).toBe("in_progress");
+    expect(parsed.verification.repositoryEvidence).toBeNull();
   });
 
   it("parses a valid runtime state document", () => {
@@ -107,6 +108,75 @@ describe("core schemas", () => {
     });
 
     expect(parsed.mcp.transport).toBe("stdio");
+  });
+
+  it("migrates state created before conversation memory existed", () => {
+    const current = currentStateSchema.parse({
+      schemaVersion,
+      revision: 1,
+      updatedAt: "2026-07-14T21:00:00.000Z",
+      updatedBy: {
+        agent: "acr",
+        adapterVersion: "1.0.0",
+        sessionId: "bootstrap"
+      },
+      project: {
+        id: "project-1",
+        rootFingerprint: sha256("/tmp/project"),
+        defaultBranch: "main"
+      },
+      objective: {
+        summary: "Legacy objective",
+        acceptanceCriteria: [],
+        constraints: []
+      },
+      activeTask: {
+        id: "BOOTSTRAP",
+        title: "Initialize",
+        status: "in_progress",
+        startedAt: "2026-07-14T21:00:00.000Z",
+        lastCheckpointId: null
+      },
+      completedSteps: [],
+      inProgressSteps: [],
+      nextSteps: [],
+      touchedFiles: { created: [], modified: [], deleted: [] },
+      verification: {
+        commands: [],
+        passed: [],
+        failed: [],
+        notRunReason: null
+      },
+      knownIssues: [],
+      blockers: [],
+      decisions: [],
+      lastSuccessfulAction: null,
+      lastFailedAction: null,
+      recovery: {
+        resumeFrom: "Inspect the project.",
+        inspectFirst: [],
+        doNotRepeat: [],
+        confidence: "medium"
+      },
+      repositoryEvidence: {
+        head: null,
+        branch: null,
+        isDirty: false,
+        statusDigest: sha256(""),
+        diffDigest: null,
+        capturedAt: "2026-07-14T21:00:00.000Z"
+      }
+    });
+
+    expect(current.conversationMemory).toEqual({
+      userIntent: "",
+      userConstraints: [],
+      userPreferences: [],
+      rejectedApproaches: [],
+      openQuestions: [],
+      importantContext: []
+    });
+    expect(current.verification.repositoryEvidence).toBeNull();
   });
 
   it("rejects absolute repository-relative file paths", () => {

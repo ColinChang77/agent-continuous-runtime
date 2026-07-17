@@ -30,12 +30,15 @@ export type DriftClass =
   | "conflict"
   | "invalid_state";
 
+export type VerificationFreshness = "current" | "stale" | "unbound" | "not_run";
+
 export interface ResumeBrief {
   drift: DriftClass;
   summary: string;
   nextAction: string;
   changedFiles: string[];
   warnings: string[];
+  verificationFreshness: VerificationFreshness;
   repository: RepositorySnapshot;
   conversationMemory: {
     userIntent: string;
@@ -51,6 +54,7 @@ export interface ReconcileResult {
   drift: DriftClass;
   changedFiles: string[];
   warnings: string[];
+  verificationFreshness: VerificationFreshness;
 }
 
 export type FailureKind =
